@@ -43,39 +43,39 @@ static void connCloseCb(struct conn *conn)
 	struct conn conn;    \
 	bool closed;
 
-#define SETUP                                                                \
-	struct uv_stream_s *stream;                                          \
-	int rv;                                                              \
-	SETUP_HEAP;                                                          \
-	SETUP_SQLITE;                                                        \
-	SETUP_LOGGER;                                                        \
-	SETUP_VFS;                                                           \
-	SETUP_CONFIG;                                                        \
-	SETUP_REGISTRY;                                                      \
-	SETUP_RAFT;                                                          \
-	SETUP_CLIENT;                                                        \
-	RAFT_BOOTSTRAP;                                                      \
-	RAFT_START;                                                          \
-	rv = transport__stream(&f->loop, f->server, &stream);                \
-	munit_assert_int(rv, ==, 0);                                         \
-	f->closed = false;                                                   \
-	f->conn.queue[0] = &f->closed;                                       \
-	rv = conn__start(&f->conn, &f->config, &f->loop, &f->registry,       \
-			 &f->raft, stream, &f->raft_transport, connCloseCb); \
+#define SETUP                                                                  \
+	struct uv_stream_s *stream;                                            \
+	int rv;                                                                \
+	SETUP_HEAP;                                                            \
+	SETUP_SQLITE;                                                          \
+	SETUP_LOGGER;                                                          \
+	SETUP_VFS;                                                             \
+	SETUP_CONFIG;                                                          \
+	SETUP_REGISTRY;                                                        \
+	SETUP_RAFT;                                                            \
+	SETUP_CLIENT;                                                          \
+	RAFT_BOOTSTRAP;                                                        \
+	RAFT_START;                                                            \
+	rv = transportStream(&f->loop, f->server, &stream);                    \
+	munit_assert_int(rv, ==, 0);                                           \
+	f->closed = false;                                                     \
+	f->conn.queue[0] = &f->closed;                                         \
+	rv = connStart(&f->conn, &f->config, &f->loop, &f->registry, &f->raft, \
+		       stream, &f->raftTransport, connCloseCb);                \
 	munit_assert_int(rv, ==, 0)
 
-#define TEAR_DOWN                         \
-	conn__stop(&f->conn);             \
-	while (!f->closed) {              \
-		test_uv_run(&f->loop, 1); \
-	};                                \
-	TEAR_DOWN_RAFT;                   \
-	TEAR_DOWN_CLIENT;                 \
-	TEAR_DOWN_REGISTRY;               \
-	TEAR_DOWN_CONFIG;                 \
-	TEAR_DOWN_VFS;                    \
-	TEAR_DOWN_LOGGER;                 \
-	TEAR_DOWN_SQLITE;                 \
+#define TEAR_DOWN                       \
+	connStop(&f->conn);             \
+	while (!f->closed) {            \
+		testUvRun(&f->loop, 1); \
+	};                              \
+	TEAR_DOWN_RAFT;                 \
+	TEAR_DOWN_CLIENT;               \
+	TEAR_DOWN_REGISTRY;             \
+	TEAR_DOWN_CONFIG;               \
+	TEAR_DOWN_VFS;                  \
+	TEAR_DOWN_LOGGER;               \
+	TEAR_DOWN_SQLITE;               \
 	TEAR_DOWN_HEAP
 
 /******************************************************************************
@@ -90,7 +90,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                               \
 		rv2 = clientSendHandshake(&f->client); \
 		munit_assert_int(rv2, ==, 0);          \
-		test_uv_run(&f->loop, 1);              \
+		testUvRun(&f->loop, 1);                \
 	}
 
 /* Open a test database. */
@@ -99,7 +99,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                                  \
 		rv2 = clientSendOpen(&f->client, "test"); \
 		munit_assert_int(rv2, ==, 0);             \
-		test_uv_run(&f->loop, 2);                 \
+		testUvRun(&f->loop, 2);                   \
 		rv2 = clientRecvDb(&f->client);           \
 		munit_assert_int(rv2, ==, 0);             \
 	}
@@ -110,7 +110,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                                   \
 		rv2 = clientSendPrepare(&f->client, SQL);  \
 		munit_assert_int(rv2, ==, 0);              \
-		test_uv_run(&f->loop, 1);                  \
+		testUvRun(&f->loop, 1);                    \
 		rv2 = clientRecvStmt(&f->client, STMT_ID); \
 		munit_assert_int(rv2, ==, 0);              \
 	}
@@ -121,7 +121,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                                           \
 		rv2 = clientSendExec(&f->client, STMT_ID);         \
 		munit_assert_int(rv2, ==, 0);                      \
-		test_uv_run(&f->loop, LOOP);                       \
+		testUvRun(&f->loop, LOOP);                         \
 		rv2 = clientRecvResult(&f->client, LAST_INSERT_ID, \
 				       ROWS_AFFECTED);             \
 		munit_assert_int(rv2, ==, 0);                      \
@@ -133,7 +133,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                                           \
 		rv2 = clientSendExecSQL(&f->client, SQL);          \
 		munit_assert_int(rv2, ==, 0);                      \
-		test_uv_run(&f->loop, LOOP);                       \
+		testUvRun(&f->loop, LOOP);                         \
 		rv2 = clientRecvResult(&f->client, LAST_INSERT_ID, \
 				       ROWS_AFFECTED);             \
 		munit_assert_int(rv2, ==, 0);                      \
@@ -145,7 +145,7 @@ static void connCloseCb(struct conn *conn)
 		int rv2;                                    \
 		rv2 = clientSendQuery(&f->client, STMT_ID); \
 		munit_assert_int(rv2, ==, 0);               \
-		test_uv_run(&f->loop, 2);                   \
+		testUvRun(&f->loop, 2);                     \
 		rv2 = clientRecvRows(&f->client, ROWS);     \
 		munit_assert_int(rv2, ==, 0);               \
 	}
@@ -158,28 +158,28 @@ static void connCloseCb(struct conn *conn)
 
 TEST_SUITE(handshake);
 
-struct handshake_fixture
+struct handshakeFixture
 {
 	FIXTURE;
 };
 
 TEST_SETUP(handshake)
 {
-	struct handshake_fixture *f = munit_malloc(sizeof *f);
+	struct handshakeFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	return f;
 }
 
 TEST_TEAR_DOWN(handshake)
 {
-	struct handshake_fixture *f = data;
+	struct handshakeFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 TEST_CASE(handshake, success, NULL)
 {
-	struct handshake_fixture *f = data;
+	struct handshakeFixture *f = data;
 	(void)params;
 	HANDSHAKE;
 	return MUNIT_OK;
@@ -193,14 +193,14 @@ TEST_CASE(handshake, success, NULL)
 
 TEST_SUITE(open);
 
-struct open_fixture
+struct openFixture
 {
 	FIXTURE;
 };
 
 TEST_SETUP(open)
 {
-	struct open_fixture *f = munit_malloc(sizeof *f);
+	struct openFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	HANDSHAKE;
 	return f;
@@ -208,14 +208,14 @@ TEST_SETUP(open)
 
 TEST_TEAR_DOWN(open)
 {
-	struct open_fixture *f = data;
+	struct openFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 TEST_CASE(open, success, NULL)
 {
-	struct open_fixture *f = data;
+	struct openFixture *f = data;
 	(void)params;
 	OPEN;
 	return MUNIT_OK;
@@ -229,14 +229,14 @@ TEST_CASE(open, success, NULL)
 
 TEST_SUITE(prepare);
 
-struct prepare_fixture
+struct prepareFixture
 {
 	FIXTURE;
 };
 
 TEST_SETUP(prepare)
 {
-	struct prepare_fixture *f = munit_malloc(sizeof *f);
+	struct prepareFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	HANDSHAKE;
 	OPEN;
@@ -245,18 +245,18 @@ TEST_SETUP(prepare)
 
 TEST_TEAR_DOWN(prepare)
 {
-	struct prepare_fixture *f = data;
+	struct prepareFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 TEST_CASE(prepare, success, NULL)
 {
-	struct prepare_fixture *f = data;
-	unsigned stmt_id;
+	struct prepareFixture *f = data;
+	unsigned stmtId;
 	(void)params;
-	PREPARE("CREATE TABLE test (n INT)", &stmt_id);
-	munit_assert_int(stmt_id, ==, 0);
+	PREPARE("CREATE TABLE test (n INT)", &stmtId);
+	munit_assert_int(stmtId, ==, 0);
 	return MUNIT_OK;
 }
 
@@ -268,15 +268,15 @@ TEST_CASE(prepare, success, NULL)
 
 TEST_SUITE(exec);
 
-struct exec_fixture
+struct execFixture
 {
 	FIXTURE;
-	unsigned stmt_id;
+	unsigned stmtId;
 };
 
 TEST_SETUP(exec)
 {
-	struct exec_fixture *f = munit_malloc(sizeof *f);
+	struct execFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	HANDSHAKE;
 	OPEN;
@@ -285,56 +285,56 @@ TEST_SETUP(exec)
 
 TEST_TEAR_DOWN(exec)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 TEST_CASE(exec, success, NULL)
 {
-	struct exec_fixture *f = data;
-	unsigned last_insert_id;
-	unsigned rows_affected;
+	struct execFixture *f = data;
+	unsigned lastInsertId;
+	unsigned rowsAffected;
 	(void)params;
-	PREPARE("CREATE TABLE test (n INT)", &f->stmt_id);
-	EXEC(f->stmt_id, &last_insert_id, &rows_affected, 8);
-	munit_assert_int(last_insert_id, ==, 0);
-	munit_assert_int(rows_affected, ==, 0);
+	PREPARE("CREATE TABLE test (n INT)", &f->stmtId);
+	EXEC(f->stmtId, &lastInsertId, &rowsAffected, 8);
+	munit_assert_int(lastInsertId, ==, 0);
+	munit_assert_int(rowsAffected, ==, 0);
 	return MUNIT_OK;
 }
 
 TEST_CASE(exec, result, NULL)
 {
-	struct exec_fixture *f = data;
-	unsigned last_insert_id;
-	unsigned rows_affected;
+	struct execFixture *f = data;
+	unsigned lastInsertId;
+	unsigned rowsAffected;
 	(void)params;
-	PREPARE("BEGIN", &f->stmt_id);
-	EXEC(f->stmt_id, &last_insert_id, &rows_affected, 2);
-	PREPARE("CREATE TABLE test (n INT)", &f->stmt_id);
-	EXEC(f->stmt_id, &last_insert_id, &rows_affected, 5);
-	PREPARE("INSERT INTO test (n) VALUES(123)", &f->stmt_id);
-	EXEC(f->stmt_id, &last_insert_id, &rows_affected, 2);
-	PREPARE("COMMIT", &f->stmt_id);
-	EXEC(f->stmt_id, &last_insert_id, &rows_affected, 5);
-	munit_assert_int(last_insert_id, ==, 1);
-	munit_assert_int(rows_affected, ==, 1);
+	PREPARE("BEGIN", &f->stmtId);
+	EXEC(f->stmtId, &lastInsertId, &rowsAffected, 2);
+	PREPARE("CREATE TABLE test (n INT)", &f->stmtId);
+	EXEC(f->stmtId, &lastInsertId, &rowsAffected, 5);
+	PREPARE("INSERT INTO test (n) VALUES(123)", &f->stmtId);
+	EXEC(f->stmtId, &lastInsertId, &rowsAffected, 2);
+	PREPARE("COMMIT", &f->stmtId);
+	EXEC(f->stmtId, &lastInsertId, &rowsAffected, 5);
+	munit_assert_int(lastInsertId, ==, 1);
+	munit_assert_int(rowsAffected, ==, 1);
 	return MUNIT_OK;
 }
 
-TEST_CASE(exec, close_while_in_flight, NULL)
+TEST_CASE(exec, closeWhileInFlight, NULL)
 {
-	struct exec_fixture *f = data;
-	unsigned last_insert_id;
-	unsigned rows_affected;
+	struct execFixture *f = data;
+	unsigned lastInsertId;
+	unsigned rowsAffected;
 	int rv;
 	(void)params;
 
-	EXEC_SQL("CREATE TABLE test (n)", &last_insert_id, &rows_affected, 7);
+	EXEC_SQL("CREATE TABLE test (n)", &lastInsertId, &rowsAffected, 7);
 	rv = clientSendExecSQL(&f->client, "INSERT INTO test(n) VALUES(1)");
 	munit_assert_int(rv, ==, 0);
 
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 
 	return MUNIT_OK;
 }
@@ -347,33 +347,33 @@ TEST_CASE(exec, close_while_in_flight, NULL)
 
 TEST_SUITE(query);
 
-struct query_fixture
+struct queryFixture
 {
 	FIXTURE;
-	unsigned stmt_id;
-	unsigned insert_stmt_id;
-	unsigned last_insert_id;
-	unsigned rows_affected;
+	unsigned stmtId;
+	unsigned insertStmtId;
+	unsigned lastInsertId;
+	unsigned rowsAffected;
 	struct rows rows;
 };
 
 TEST_SETUP(query)
 {
-	struct query_fixture *f = munit_malloc(sizeof *f);
-	unsigned stmt_id;
+	struct queryFixture *f = munit_malloc(sizeof *f);
+	unsigned stmtId;
 	SETUP;
 	HANDSHAKE;
 	OPEN;
-	PREPARE("CREATE TABLE test (n INT)", &stmt_id);
-	EXEC(stmt_id, &f->last_insert_id, &f->rows_affected, 7);
-	PREPARE("INSERT INTO test(n) VALUES (123)", &f->insert_stmt_id);
-	EXEC(f->insert_stmt_id, &f->last_insert_id, &f->rows_affected, 4);
+	PREPARE("CREATE TABLE test (n INT)", &stmtId);
+	EXEC(stmtId, &f->lastInsertId, &f->rowsAffected, 7);
+	PREPARE("INSERT INTO test(n) VALUES (123)", &f->insertStmtId);
+	EXEC(f->insertStmtId, &f->lastInsertId, &f->rowsAffected, 4);
 	return f;
 }
 
 TEST_TEAR_DOWN(query)
 {
-	struct query_fixture *f = data;
+	struct queryFixture *f = data;
 	clientCloseRows(&f->rows);
 	TEAR_DOWN;
 	free(f);
@@ -382,13 +382,13 @@ TEST_TEAR_DOWN(query)
 /* Perform a query yielding one row. */
 TEST_CASE(query, one, NULL)
 {
-	struct query_fixture *f = data;
+	struct queryFixture *f = data;
 	struct row *row;
 	(void)params;
-	PREPARE("SELECT n FROM test", &f->stmt_id);
-	QUERY(f->stmt_id, &f->rows);
-	munit_assert_int(f->rows.column_count, ==, 1);
-	munit_assert_string_equal(f->rows.column_names[0], "n");
+	PREPARE("SELECT n FROM test", &f->stmtId);
+	QUERY(f->stmtId, &f->rows);
+	munit_assert_int(f->rows.columnCount, ==, 1);
+	munit_assert_string_equal(f->rows.columnNames[0], "n");
 	row = f->rows.next;
 	munit_assert_ptr_not_null(row);
 	munit_assert_ptr_null(row->next);

@@ -17,20 +17,20 @@
 struct buffer
 {
 	void *data;	 /* Allocated buffer */
-	unsigned page_size; /* Size of an OS page */
-	unsigned n_pages;   /* Number of pages allocated */
+	unsigned pageSize;  /* Size of an OS page */
+	unsigned nPages;    /* Number of pages allocated */
 	size_t offset;      /* Next byte to write in the buffer */
 };
 
 /**
  * Initialize the buffer. It will initially have 1 memory  page.
  */
-int buffer__init(struct buffer *b);
+int bufferInit(struct buffer *b);
 
 /**
  * Release the memory of the buffer.
  */
-void buffer__close(struct buffer *b);
+void bufferClose(struct buffer *b);
 
 /**
  * Return a write cursor pointing to the next byte to write, ensuring that the
@@ -38,21 +38,21 @@ void buffer__close(struct buffer *b);
  *
  * Return #NULL in case of out-of-memory errors.
  */
-void *buffer__advance(struct buffer *b, size_t size);
+void *bufferAdvance(struct buffer *b, size_t size);
 
 /**
  * Return the offset of next byte to write.
  */
-size_t buffer__offset(struct buffer *b);
+size_t bufferOffset(struct buffer *b);
 
 /**
  * Return a write cursor pointing to the @offset'th byte of the buffer.
  */
-void *buffer__cursor(struct buffer *b, size_t offset);
+void *bufferCursor(struct buffer *b, size_t offset);
 
 /**
  * Reset the write offset of the buffer.
  */
-void buffer__reset(struct buffer *b);
+void bufferReset(struct buffer *b);
 
 #endif /* LIB_BUFFER_H_ */

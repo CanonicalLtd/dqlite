@@ -6,33 +6,33 @@
 #include "logger.h"
 #include "munit.h"
 
-void test_logger_emit(void *data, int level, const char *format, va_list args)
+void testLoggerEmit(void *data, int level, const char *format, va_list args)
 {
-	struct test_logger *t = data;
+	struct testLogger *t = data;
 	char buf[1024];
-	const char *level_name;
+	const char *levelName;
 	int i;
 
 	(void)data;
 
 	switch (level) {
 		case DQLITE_DEBUG:
-			level_name = "DEBUG";
+			levelName = "DEBUG";
 			break;
 		case DQLITE_INFO:
-			level_name = "INFO ";
+			levelName = "INFO ";
 			break;
 		case DQLITE_WARN:
-			level_name = "WARN ";
+			levelName = "WARN ";
 			break;
 		case DQLITE_LOG_ERROR:
-			level_name = "ERROR";
+			levelName = "ERROR";
 			break;
 	};
 
 	buf[0] = 0;
 
-	sprintf(buf + strlen(buf), "%2d -> [%s] ", t->id, level_name);
+	sprintf(buf + strlen(buf), "%2d -> [%s] ", t->id, levelName);
 
 	vsnprintf(buf + strlen(buf), 1024 - strlen(buf), format, args);
 	munit_log(MUNIT_LOG_INFO, buf);
@@ -47,9 +47,9 @@ void test_logger_emit(void *data, int level, const char *format, va_list args)
 	munit_log(MUNIT_LOG_INFO, buf);
 }
 
-void test_logger_setup(const MunitParameter params[], struct logger *l)
+void testLoggerSetup(const MunitParameter params[], struct logger *l)
 {
-	struct test_logger *t;
+	struct testLogger *t;
 
 	(void)params;
 
@@ -57,10 +57,10 @@ void test_logger_setup(const MunitParameter params[], struct logger *l)
 	t->data = NULL;
 
 	l->data = t;
-	l->emit = test_logger_emit;
+	l->emit = testLoggerEmit;
 }
 
-void test_logger_tear_down(struct logger *l)
+void testLoggerTearDown(struct logger *l)
 {
 	free(l->data);
 }

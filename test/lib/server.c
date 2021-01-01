@@ -21,21 +21,21 @@ static int endpointConnect(void *data,
 	return 0;
 }
 
-void test_server_setup(struct test_server *s,
-		       const unsigned id,
-		       const MunitParameter params[])
+void testServerSetup(struct testServer *s,
+		     const unsigned id,
+		     const MunitParameter params[])
 {
 	(void)params;
 
 	s->id = id;
 	sprintf(s->address, "@%u", id);
 
-	s->dir = test_dir_setup();
+	s->dir = testDirSetup();
 
 	memset(s->others, 0, sizeof s->others);
 }
 
-void test_server_tear_down(struct test_server *s)
+void testServerTearDown(struct testServer *s)
 {
 	int rv;
 
@@ -46,10 +46,10 @@ void test_server_tear_down(struct test_server *s)
 
 	dqlite_node_destroy(s->dqlite);
 
-	test_dir_tear_down(s->dir);
+	testDirTearDown(s->dir);
 }
 
-void test_server_start(struct test_server *s)
+void testServerStart(struct testServer *s)
 {
 	int client;
 	int rv;
@@ -74,25 +74,25 @@ void test_server_start(struct test_server *s)
 	munit_assert_int(rv, ==, 0);
 }
 
-struct client *test_server_client(struct test_server *s)
+struct client *testServerClient(struct testServer *s)
 {
 	return &s->client;
 }
 
-static void setOther(struct test_server *s, struct test_server *other)
+static void setOther(struct testServer *s, struct testServer *other)
 {
 	unsigned i = other->id - 1;
 	munit_assert_ptr_null(s->others[i]);
 	s->others[i] = other;
 }
-void test_server_network(struct test_server *servers, unsigned n_servers)
+void testServerNetwork(struct testServer *servers, unsigned nServers)
 {
 	unsigned i;
 	unsigned j;
-	for (i = 0; i < n_servers; i++) {
-		for (j = 0; j < n_servers; j++) {
-			struct test_server *server = &servers[i];
-			struct test_server *other = &servers[j];
+	for (i = 0; i < nServers; i++) {
+		for (j = 0; j < nServers; j++) {
+			struct testServer *server = &servers[i];
+			struct testServer *other = &servers[j];
 			if (i == j) {
 				continue;
 			}

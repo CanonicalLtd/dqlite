@@ -15,51 +15,51 @@ enum { COMMAND_OPEN = 1, COMMAND_FRAMES, COMMAND_UNDO, COMMAND_CHECKPOINT };
 /* Hold information about an array of WAL frames. */
 struct frames
 {
-	uint32_t n_pages;
-	uint16_t page_size;
+	uint32_t nPages;
+	uint16_t pageSize;
 	uint16_t __unused__;
 	/* TODO: because the sqlite3 replication APIs are asymmetrics, the
 	 * format differs between encode and decode. When encoding data is
 	 * expected to be a sqlite3_wal_replication_frame* array, and when
 	 * decoding it will be a pointer to raw memory which can be further
-	 * decoded with the command_frames__page_numbers() and
-	 * command_frames__pages() helpers. */
+	 * decoded with the commandFramesPageNumbers() and
+	 * commandFramesPages() helpers. */
 	const void *data;
 };
 
 typedef struct frames frames_t;
 
 /* Serialization definitions for a raft FSM command. */
-#define COMMAND__DEFINE(LOWER, UPPER, _) \
-	SERIALIZE__DEFINE_STRUCT(command_##LOWER, COMMAND__##UPPER);
+#define COMMAND_DEFINE(LOWER, UPPER, _) \
+	SERIALIZE_DEFINE_STRUCT(command##LOWER, COMMAND_##UPPER);
 
-#define COMMAND__OPEN(X, ...) X(text, filename, ##__VA_ARGS__)
-#define COMMAND__FRAMES(X, ...)               \
+#define COMMAND_OPEN(X, ...) X(text, filename, ##__VA_ARGS__)
+#define COMMAND_FRAMES(X, ...)               \
 	X(text, filename, ##__VA_ARGS__)      \
-	X(uint64, tx_id, ##__VA_ARGS__)       \
+	X(uint64, txId, ##__VA_ARGS__)        \
 	X(uint32, truncate, ##__VA_ARGS__)    \
-	X(uint8, is_commit, ##__VA_ARGS__)    \
+	X(uint8, isCommit, ##__VA_ARGS__)     \
 	X(uint8, __unused1__, ##__VA_ARGS__)  \
 	X(uint16, __unused2__, ##__VA_ARGS__) \
 	X(frames, frames, ##__VA_ARGS__)
-#define COMMAND__UNDO(X, ...) X(uint64, tx_id, ##__VA_ARGS__)
-#define COMMAND__CHECKPOINT(X, ...) X(text, filename, ##__VA_ARGS__)
+#define COMMAND_UNDO(X, ...) X(uint64, txId, ##__VA_ARGS__)
+#define COMMAND_CHECKPOINT(X, ...) X(text, filename, ##__VA_ARGS__)
 
-#define COMMAND__TYPES(X, ...)         \
+#define COMMAND_TYPES(X, ...)          \
 	X(open, OPEN, __VA_ARGS__)     \
 	X(frames, FRAMES, __VA_ARGS__) \
 	X(undo, UNDO, __VA_ARGS__)     \
 	X(checkpoint, CHECKPOINT, __VA_ARGS__)
 
-COMMAND__TYPES(COMMAND__DEFINE);
+COMMAND_TYPES(COMMAND_DEFINE);
 
-int command__encode(int type, const void *command, struct raft_buffer *buf);
+int commandEncode(int type, const void *command, struct raft_buffer *buf);
 
-int command__decode(const struct raft_buffer *buf, int *type, void **command);
+int commandDecode(const struct raft_buffer *buf, int *type, void **command);
 
-int command_frames__page_numbers(const struct command_frames *c,
-				 unsigned long *page_numbers[]);
+int commandFramesPageNumbers(const struct commandframes *c,
+			     unsigned long *pageNumbers[]);
 
-void command_frames__pages(const struct command_frames *c, void **pages);
+void commandFramesPages(const struct commandframes *c, void **pages);
 
 #endif /* COMMAND_H_*/

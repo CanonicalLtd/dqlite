@@ -10,7 +10,7 @@
 /**
  * Information about a fault that should occurr in a component.
  */
-struct test_fault
+struct testFault
 {
     int countdown; /* Trigger the fault when this counter gets to zero. */
     int n;         /* Repeat the fault this many times. Default is -1. */
@@ -20,22 +20,22 @@ struct test_fault
 /**
  * Initialize a fault.
  */
-void test_fault_init(struct test_fault *f);
+void testFaultInit(struct testFault *f);
 
 /**
  * Advance the counters of the fault. Return true if the fault should be
  * triggered, false otherwise.
  */
-bool test_fault_tick(struct test_fault *f);
+bool testFaultTick(struct testFault *f);
 
 /**
  * Configure the fault with the given values.
  */
-void test_fault_config(struct test_fault *f, int delay, int repeat);
+void testFaultConfig(struct testFault *f, int delay, int repeat);
 
 /**
  * Enable fault triggering.
  */
-void test_fault_enable(struct test_fault *f);
+void testFaultEnable(struct testFault *f);
 
 #endif /* TEST_FAULT_H */

@@ -15,7 +15,7 @@ struct db
 	char *filename;        /* Database filename */
 	sqlite3 *follower;     /* Follower connection */
 	queue leaders;         /* Open leader connections */
-	unsigned tx_id;        /* Current ongoing transaction ID, if any */
+	unsigned txId;         /* Current ongoing transaction ID, if any */
 	queue queue;           /* Prev/next database, used by the registry */
 };
 
@@ -24,18 +24,18 @@ struct db
  *
  * The given @filename will be copied.
  */
-void db__init(struct db *db, struct config *config, const char *filename);
+void dbInit(struct db *db, struct config *config, const char *filename);
 
 /**
  * Release all memory associated with a database object.
  *
  * If the follower connection was opened, it will be closed.
  */
-void db__close(struct db *db);
+void dbClose(struct db *db);
 
 /**
  * Open the follower connection associated with this database.
  */
-int db__open_follower(struct db *db);
+int dbOpenFollower(struct db *db);
 
 #endif /* DB_H_*/

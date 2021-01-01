@@ -23,7 +23,7 @@ static int getFamily(const MunitParameter params[])
 	return -1;
 }
 
-void test_endpoint_setup(struct test_endpoint *e, const MunitParameter params[])
+void testEndpointSetup(struct testEndpoint *e, const MunitParameter params[])
 {
 	struct sockaddr *address;
 	socklen_t size;
@@ -35,20 +35,20 @@ void test_endpoint_setup(struct test_endpoint *e, const MunitParameter params[])
 	switch (e->family) {
 		case AF_INET:
 			/* TCP socket on loopback device */
-			memset(&e->in_address, 0, sizeof e->in_address);
-			e->in_address.sin_family = AF_INET;
-			e->in_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-			e->in_address.sin_port = 0; /* Get a random free port */
-			address = (struct sockaddr *)(&e->in_address);
-			size = sizeof e->in_address;
+			memset(&e->inAddress, 0, sizeof e->inAddress);
+			e->inAddress.sin_family = AF_INET;
+			e->inAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+			e->inAddress.sin_port = 0; /* Get a random free port */
+			address = (struct sockaddr *)(&e->inAddress);
+			size = sizeof e->inAddress;
 			break;
 		case AF_UNIX:
 			/* Abstract Unix socket */
-			memset(&e->un_address, 0, sizeof e->un_address);
-			e->un_address.sun_family = AF_UNIX;
-			strcpy(e->un_address.sun_path, ""); /* Random address */
-			address = (struct sockaddr *)(&e->un_address);
-			size = sizeof e->un_address;
+			memset(&e->unAddress, 0, sizeof e->unAddress);
+			e->unAddress.sun_family = AF_UNIX;
+			strcpy(e->unAddress.sun_path, ""); /* Random address */
+			address = (struct sockaddr *)(&e->unAddress);
+			size = sizeof e->unAddress;
 			break;
 		default:
 			munit_errorf("unexpected socket family: %d", e->family);
@@ -77,7 +77,7 @@ void test_endpoint_setup(struct test_endpoint *e, const MunitParameter params[])
 	switch (e->family) {
 		case AF_INET:
 			sprintf(e->address, "127.0.0.1:%d",
-				htons(e->in_address.sin_port));
+				htons(e->inAddress.sin_port));
 			break;
 		case AF_UNIX:
 			/* TODO */
@@ -85,12 +85,12 @@ void test_endpoint_setup(struct test_endpoint *e, const MunitParameter params[])
 	}
 }
 
-void test_endpoint_tear_down(struct test_endpoint *e)
+void testEndpointTearDown(struct testEndpoint *e)
 {
 	close(e->fd);
 }
 
-int test_endpoint_connect(struct test_endpoint *e)
+int testEndpointConnect(struct testEndpoint *e)
 {
 	struct sockaddr *address;
 	socklen_t size;
@@ -99,12 +99,12 @@ int test_endpoint_connect(struct test_endpoint *e)
 
 	switch (e->family) {
 		case AF_INET:
-			address = (struct sockaddr *)&e->in_address;
-			size = sizeof e->in_address;
+			address = (struct sockaddr *)&e->inAddress;
+			size = sizeof e->inAddress;
 			break;
 		case AF_UNIX:
-			address = (struct sockaddr *)&e->un_address;
-			size = sizeof e->un_address;
+			address = (struct sockaddr *)&e->unAddress;
+			size = sizeof e->unAddress;
 			break;
 	}
 
@@ -123,10 +123,10 @@ int test_endpoint_connect(struct test_endpoint *e)
 	return fd;
 }
 
-int test_endpoint_accept(struct test_endpoint *e)
+int testEndpointAccept(struct testEndpoint *e)
 {
-	struct sockaddr_in in_address;
-	struct sockaddr_un un_address;
+	struct sockaddr_in inAddress;
+	struct sockaddr_un unAddress;
 	struct sockaddr *address;
 	socklen_t size;
 	int fd;
@@ -134,12 +134,12 @@ int test_endpoint_accept(struct test_endpoint *e)
 
 	switch (e->family) {
 		case AF_INET:
-			address = (struct sockaddr *)&in_address;
-			size = sizeof in_address;
+			address = (struct sockaddr *)&inAddress;
+			size = sizeof inAddress;
 			break;
 		case AF_UNIX:
-			address = (struct sockaddr *)&un_address;
-			size = sizeof un_address;
+			address = (struct sockaddr *)&unAddress;
+			size = sizeof unAddress;
 			break;
 	}
 
@@ -162,15 +162,15 @@ int test_endpoint_accept(struct test_endpoint *e)
 	return fd;
 }
 
-void test_endpoint_pair(struct test_endpoint *e, int *server, int *client)
+void testEndpointPair(struct testEndpoint *e, int *server, int *client)
 {
-	*client = test_endpoint_connect(e);
-	*server = test_endpoint_accept(e);
+	*client = testEndpointConnect(e);
+	*server = testEndpointAccept(e);
 }
 
-const char *test_endpoint_address(struct test_endpoint *e)
+const char *testEndpointAddress(struct testEndpoint *e)
 {
 	return e->address;
 }
 
-char *test_endpoint_family_values[] = {"tcp", "unix", NULL};
+char *testEndpointFamilyValues[] = {"tcp", "unix", NULL};

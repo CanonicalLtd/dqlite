@@ -27,7 +27,7 @@ int VfsPoll(sqlite3_vfs *vfs,
 int VfsApply(sqlite3_vfs *vfs,
 	     const char *filename,
 	     unsigned n,
-	     unsigned long *page_numbers,
+	     unsigned long *pageNumbers,
 	     void *frames);
 
 /* Cancel a pending transaction. */

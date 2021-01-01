@@ -49,7 +49,7 @@
 
 #include "protocol.h"
 
-enum { TUPLE__ROW = 1, TUPLE__PARAMS };
+enum { TUPLE_ROW = 1, TUPLE_PARAMS };
 
 /**
  * Hold a single database value.
@@ -72,7 +72,7 @@ struct value
 /**
  * Maintain state while decoding a single tuple.
  */
-struct tuple_decoder
+struct tupleDecoder
 {
 	unsigned n;	    /* Number of values in the tuple */
 	struct cursor *cursor; /* Reading cursor */
@@ -89,9 +89,7 @@ struct tuple_decoder
  * parameters. In that case the d->n field will be read from the first byte of
  * @cursor.
  */
-int tuple_decoder__init(struct tuple_decoder *d,
-			unsigned n,
-			struct cursor *cursor);
+int tupleDecoderInit(struct tupleDecoder *d, unsigned n, struct cursor *cursor);
 
 /**
  * Return the number of values in the tuple being decoded.
@@ -100,17 +98,17 @@ int tuple_decoder__init(struct tuple_decoder *d,
  * parameters format this is the value contained in the first byte of the tuple
  * header.
  */
-unsigned tuple_decoder__n(struct tuple_decoder *d);
+unsigned tupleDecoderN(struct tupleDecoder *d);
 
 /**
  * Decode the next value of the tuple.
  */
-int tuple_decoder__next(struct tuple_decoder *d, struct value *value);
+int tupleDecoderNext(struct tupleDecoder *d, struct value *value);
 
 /**
  * Maintain state while encoding a single tuple.
  */
-struct tuple_encoder
+struct tupleEncoder
 {
 	unsigned n;	    /* Number of values in the tuple */
 	int format;	    /* Tuple format (row or params) */
@@ -123,14 +121,14 @@ struct tuple_encoder
  * Initialize the state of the encoder, before starting to encode a new
  * tuple. The @n parameter must always be greater than zero.
  */
-int tuple_encoder__init(struct tuple_encoder *e,
-			unsigned n,
-			int format,
-			struct buffer *buffer);
+int tupleEncoderInit(struct tupleEncoder *e,
+		     unsigned n,
+		     int format,
+		     struct buffer *buffer);
 
 /**
  * Encode the next value of the tuple.
  */
-int tuple_encoder__next(struct tuple_encoder *e, struct value *value);
+int tupleEncoderNext(struct tupleEncoder *e, struct value *value);
 
 #endif /* DQLITE_TUPLE_H_ */

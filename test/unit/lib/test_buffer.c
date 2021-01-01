@@ -2,7 +2,7 @@
 
 #include "../../lib/runner.h"
 
-TEST_MODULE(lib_buffer);
+TEST_MODULE(libBuffer);
 
 /******************************************************************************
  *
@@ -15,13 +15,13 @@ struct fixture
 	struct buffer buffer;
 };
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	int rc;
 	(void)params;
-	(void)user_data;
-	rc = buffer__init(&f->buffer);
+	(void)userData;
+	rc = bufferInit(&f->buffer);
 	munit_assert_int(rc, ==, 0);
 	return f;
 }
@@ -29,7 +29,7 @@ static void *setup(const MunitParameter params[], void *user_data)
 static void tear_down(void *data)
 {
 	struct fixture *f = data;
-	buffer__close(&f->buffer);
+	bufferClose(&f->buffer);
 	free(f);
 }
 
@@ -39,10 +39,10 @@ static void tear_down(void *data)
  *
  ******************************************************************************/
 
-#define ADVANCE(SIZE)                                       \
-	{                                                   \
-		cursor = buffer__advance(&f->buffer, SIZE); \
-		munit_assert_ptr_not_null(cursor);          \
+#define ADVANCE(SIZE)                                     \
+	{                                                 \
+		cursor = bufferAdvance(&f->buffer, SIZE); \
+		munit_assert_ptr_not_null(cursor);        \
 	}
 
 /******************************************************************************
@@ -51,11 +51,11 @@ static void tear_down(void *data)
  *
  ******************************************************************************/
 
-#define ASSERT_N_PAGES(N) munit_assert_int(f->buffer.n_pages, ==, N)
+#define ASSERT_N_PAGES(N) munit_assert_int(f->buffer.nPages, ==, N)
 
 /******************************************************************************
  *
- * buffer__init
+ * bufferInit
  *
  ******************************************************************************/
 
@@ -65,18 +65,18 @@ TEST_TEAR_DOWN(init, tear_down);
 
 /* If n is 0, then the prefix is used to dermine the number of elements of the
  * tuple. */
-TEST_CASE(init, n_pages, NULL)
+TEST_CASE(init, nPages, NULL)
 {
 	struct fixture *f = data;
 	(void)params;
 	ASSERT_N_PAGES(1);
-	munit_assert_int(f->buffer.page_size, ==, 4096);
+	munit_assert_int(f->buffer.pageSize, ==, 4096);
 	return MUNIT_OK;
 }
 
 /******************************************************************************
  *
- * buffer__advance
+ * bufferAdvance
  *
  ******************************************************************************/
 
@@ -101,18 +101,18 @@ TEST_CASE(advance, double, NULL)
 	struct fixture *f = data;
 	void *cursor;
 	(void)params;
-	ADVANCE(16 + f->buffer.page_size);
+	ADVANCE(16 + f->buffer.pageSize);
 	ASSERT_N_PAGES(2);
 	return MUNIT_OK;
 }
 
 /* The buffer needs to double its sice twice. */
-TEST_CASE(advance, double_twice, NULL)
+TEST_CASE(advance, doubleTwice, NULL)
 {
 	struct fixture *f = data;
 	void *cursor;
 	(void)params;
-	ADVANCE(16 + 3 * f->buffer.page_size);
+	ADVANCE(16 + 3 * f->buffer.pageSize);
 	ASSERT_N_PAGES(4);
 	return MUNIT_OK;
 }

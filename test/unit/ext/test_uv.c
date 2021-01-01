@@ -8,7 +8,7 @@
 #include "../../lib/runner.h"
 #include "../../lib/uv.h"
 
-TEST_MODULE(ext_uv);
+TEST_MODULE(extUv);
 
 /******************************************************************************
  *
@@ -20,7 +20,7 @@ struct fixture
 {
 	struct uv_loop_s loop;
 	struct uv_stream_s *listener;
-	struct test_endpoint endpoint;
+	struct testEndpoint endpoint;
 	int client;
 	union {
 		uv_tcp_t tcp;
@@ -30,7 +30,7 @@ struct fixture
 };
 
 /* Return a buffer of size TEST_SOCKET_MIN_BUF_SIZE */
-static uv_buf_t *buf_malloc(void)
+static uv_buf_t *bufMalloc(void)
 {
 	uv_buf_t *buf = munit_malloc(sizeof *buf);
 	buf->base = munit_malloc(TEST_SOCKET_MIN_BUF_SIZE);
@@ -38,8 +38,8 @@ static uv_buf_t *buf_malloc(void)
 	return buf;
 }
 
-/* Free the buffer returned by buf_malloc() */
-static void buf_free(uv_buf_t *buf)
+/* Free the buffer returned by bufMalloc() */
+static void bufFree(uv_buf_t *buf)
 {
 	free(buf->base);
 	free(buf);
@@ -53,7 +53,7 @@ static void buf_free(uv_buf_t *buf)
 
 /* Run the tests using both TCP and Unix sockets. */
 static MunitParameterEnum endpointParams[] = {
-    {TEST_ENDPOINT_FAMILY, test_endpoint_family_values},
+    {TEST_ENDPOINT_FAMILY, testEndpointFamilyValues},
     {NULL, NULL},
 };
 
@@ -86,16 +86,16 @@ static void listenCb(uv_stream_t *listener, int status)
 	munit_assert_int(rv, ==, 0);
 }
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	int rv;
-	(void)user_data;
+	(void)userData;
 
-	test_uv_setup(params, &f->loop);
-	test_endpoint_setup(&f->endpoint, params);
+	testUvSetup(params, &f->loop);
+	testEndpointSetup(&f->endpoint, params);
 
-	rv = transport__stream(&f->loop, f->endpoint.fd, &f->listener);
+	rv = transportStream(&f->loop, f->endpoint.fd, &f->listener);
 	munit_assert_int(rv, ==, 0);
 
 	f->listener->data = f;
@@ -103,9 +103,9 @@ static void *setup(const MunitParameter params[], void *user_data)
 	rv = uv_listen(f->listener, 128, listenCb);
 	munit_assert_int(rv, ==, 0);
 
-	f->client = test_endpoint_connect(&f->endpoint);
+	f->client = testEndpointConnect(&f->endpoint);
 
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 
 	return f;
 }
@@ -117,10 +117,10 @@ static void tear_down(void *data)
 	rv = close(f->client);
 	munit_assert_int(rv, ==, 0);
 	uv_close((struct uv_handle_s *)f->listener, (uv_close_cb)raft_free);
-	test_endpoint_tear_down(&f->endpoint);
+	testEndpointTearDown(&f->endpoint);
 	uv_close((uv_handle_t *)(&f->stream), NULL);
-	test_uv_stop(&f->loop);
-	test_uv_tear_down(&f->loop);
+	testUvStop(&f->loop);
+	testUvTearDown(&f->loop);
 	free(f);
 }
 
@@ -140,8 +140,8 @@ TEST_CASE(write, sync, endpointParams)
 {
 	struct fixture *f = data;
 	uv_write_t req;
-	uv_buf_t *buf1 = buf_malloc();
-	uv_buf_t *buf2 = buf_malloc();
+	uv_buf_t *buf1 = bufMalloc();
+	uv_buf_t *buf2 = bufMalloc();
 	int rv;
 
 	(void)params;
@@ -152,17 +152,17 @@ TEST_CASE(write, sync, endpointParams)
 	rv = read(f->client, buf2->base, buf2->len);
 	munit_assert_int(rv, ==, buf2->len);
 
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 
-	buf_free(buf1);
-	buf_free(buf2);
+	bufFree(buf1);
+	bufFree(buf2);
 
 	return MUNIT_OK;
 }
 
 /******************************************************************************
  *
- * uv_read
+ * uvRead
  *
  ******************************************************************************/
 
@@ -170,9 +170,7 @@ TEST_SUITE(read);
 TEST_SETUP(read, setup);
 TEST_TEAR_DOWN(read, tear_down);
 
-static void test_read_sync__alloc_cb(uv_handle_t *stream,
-				     size_t _,
-				     uv_buf_t *buf)
+static void testReadSyncAllocCb(uv_handle_t *stream, size_t _, uv_buf_t *buf)
 {
 	(void)stream;
 	(void)_;
@@ -181,11 +179,11 @@ static void test_read_sync__alloc_cb(uv_handle_t *stream,
 	buf->base = munit_malloc(TEST_SOCKET_MIN_BUF_SIZE);
 }
 
-static void test_read_sync__read_cb(uv_stream_t *stream,
-				    ssize_t nread,
-				    const uv_buf_t *buf)
+static void testReadSyncReadCb(uv_stream_t *stream,
+			       ssize_t nread,
+			       const uv_buf_t *buf)
 {
-	bool *read_cb_called;
+	bool *readCbCalled;
 
 	/* Apprently there's an empty read before the actual one. */
 	if (nread == 0) {
@@ -196,9 +194,9 @@ static void test_read_sync__read_cb(uv_stream_t *stream,
 	munit_assert_int(nread, ==, TEST_SOCKET_MIN_BUF_SIZE);
 	munit_assert_int(buf->len, ==, TEST_SOCKET_MIN_BUF_SIZE);
 
-	read_cb_called = stream->data;
+	readCbCalled = stream->data;
 
-	*read_cb_called = true;
+	*readCbCalled = true;
 
 	free(buf->base);
 }
@@ -207,25 +205,24 @@ static void test_read_sync__read_cb(uv_stream_t *stream,
 TEST_CASE(read, sync, endpointParams)
 {
 	struct fixture *f = data;
-	uv_buf_t *buf = buf_malloc();
+	uv_buf_t *buf = bufMalloc();
 	int rv;
-	bool read_cb_called;
+	bool readCbCalled;
 
 	(void)params;
 
-	f->stream.data = &read_cb_called;
+	f->stream.data = &readCbCalled;
 
-	rv = uv_read_start(&f->stream, test_read_sync__alloc_cb,
-			   test_read_sync__read_cb);
+	rv = uv_read_start(&f->stream, testReadSyncAllocCb, testReadSyncReadCb);
 
 	rv = write(f->client, buf->base, buf->len);
 	munit_assert_int(rv, ==, buf->len);
 
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 
-	munit_assert_true(read_cb_called);
+	munit_assert_true(readCbCalled);
 
-	buf_free(buf);
+	bufFree(buf);
 
 	return MUNIT_OK;
 }

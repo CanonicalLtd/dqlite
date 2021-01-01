@@ -16,49 +16,49 @@
 	X(uint8, _unused2, ##__VA_ARGS__) \
 	X(uint32, _unused3, ##__VA_ARGS__)
 
-SERIALIZE__DEFINE(header, HEADER);
-SERIALIZE__IMPLEMENT(header, HEADER);
+SERIALIZE_DEFINE(header, HEADER);
+SERIALIZE_IMPLEMENT(header, HEADER);
 
-static size_t frames__sizeof(const frames_t *frames)
+static size_t framesSizeof(const frames_t *frames)
 {
-	size_t s = uint32__sizeof(&frames->n_pages) +
-		   uint16__sizeof(&frames->page_size) +
-		   uint16__sizeof(&frames->__unused__) +
-		   sizeof(uint64_t) * frames->n_pages + /* Page numbers */
-		   frames->page_size * frames->n_pages; /* Page data */
+	size_t s = uint32Sizeof(&frames->nPages) +
+		   uint16Sizeof(&frames->pageSize) +
+		   uint16Sizeof(&frames->__unused__) +
+		   sizeof(uint64_t) * frames->nPages + /* Page numbers */
+		   frames->pageSize * frames->nPages;  /* Page data */
 	return s;
 }
 
-static void frames__encode(const frames_t *frames, void **cursor)
+static void framesEncode(const frames_t *frames, void **cursor)
 {
 	const dqlite_vfs_frame *list;
 	unsigned i;
-	uint32__encode(&frames->n_pages, cursor);
-	uint16__encode(&frames->page_size, cursor);
-	uint16__encode(&frames->__unused__, cursor);
+	uint32Encode(&frames->nPages, cursor);
+	uint16Encode(&frames->pageSize, cursor);
+	uint16Encode(&frames->__unused__, cursor);
 	list = frames->data;
-	for (i = 0; i < frames->n_pages; i++) {
+	for (i = 0; i < frames->nPages; i++) {
 		uint64_t pgno = list[i].page_number;
-		uint64__encode(&pgno, cursor);
+		uint64Encode(&pgno, cursor);
 	}
-	for (i = 0; i < frames->n_pages; i++) {
-		memcpy(*cursor, list[i].data, frames->page_size);
-		*cursor += frames->page_size;
+	for (i = 0; i < frames->nPages; i++) {
+		memcpy(*cursor, list[i].data, frames->pageSize);
+		*cursor += frames->pageSize;
 	}
 }
 
-static int frames__decode(struct cursor *cursor, frames_t *frames)
+static int framesDecode(struct cursor *cursor, frames_t *frames)
 {
 	int rc;
-	rc = uint32__decode(cursor, &frames->n_pages);
+	rc = uint32Decode(cursor, &frames->nPages);
 	if (rc != 0) {
 		return rc;
 	}
-	rc = uint16__decode(cursor, &frames->page_size);
+	rc = uint16Decode(cursor, &frames->pageSize);
 	if (rc != 0) {
 		return rc;
 	}
-	rc = uint16__decode(cursor, &frames->__unused__);
+	rc = uint16Decode(cursor, &frames->__unused__);
 	if (rc != 0) {
 		return rc;
 	}
@@ -66,47 +66,47 @@ static int frames__decode(struct cursor *cursor, frames_t *frames)
 	return 0;
 }
 
-#define COMMAND__IMPLEMENT(LOWER, UPPER, _) \
-	SERIALIZE__IMPLEMENT(command_##LOWER, COMMAND__##UPPER);
+#define COMMAND_IMPLEMENT(LOWER, UPPER, _) \
+	SERIALIZE_IMPLEMENT(command##LOWER, COMMAND_##UPPER);
 
-COMMAND__TYPES(COMMAND__IMPLEMENT, );
+COMMAND_TYPES(COMMAND_IMPLEMENT, );
 
-#define ENCODE(LOWER, UPPER, _)                                 \
-	case COMMAND_##UPPER:                                   \
-		h.type = COMMAND_##UPPER;                       \
-		buf->len = header__sizeof(&h);                  \
-		buf->len += command_##LOWER##__sizeof(command); \
-		buf->base = raft_malloc(buf->len);              \
-		if (buf->base == NULL) {                        \
-			return DQLITE_NOMEM;                    \
-		}                                               \
-		cursor = buf->base;                             \
-		header__encode(&h, &cursor);                    \
-		command_##LOWER##__encode(command, &cursor);    \
+#define ENCODE(LOWER, UPPER, _)                              \
+	case COMMAND_##UPPER:                                \
+		h.type = COMMAND_##UPPER;                    \
+		buf->len = headerSizeof(&h);                 \
+		buf->len += command##LOWER##Sizeof(command); \
+		buf->base = raft_malloc(buf->len);           \
+		if (buf->base == NULL) {                     \
+			return DQLITE_NOMEM;                 \
+		}                                            \
+		cursor = buf->base;                          \
+		headerEncode(&h, &cursor);                   \
+		command##LOWER##Encode(command, &cursor);    \
 		break;
 
-int command__encode(int type, const void *command, struct raft_buffer *buf)
+int commandEncode(int type, const void *command, struct raft_buffer *buf)
 {
 	struct header h;
 	void *cursor;
 	int rc = 0;
 	h.format = FORMAT;
 	switch (type) {
-		COMMAND__TYPES(ENCODE, )
+		COMMAND_TYPES(ENCODE, )
 	};
 	return rc;
 }
 
-#define DECODE(LOWER, UPPER, _)                                         \
-	case COMMAND_##UPPER:                                           \
-		*command = raft_malloc(sizeof(struct command_##LOWER)); \
-		if (*command == NULL) {                                 \
-			return DQLITE_NOMEM;                            \
-		}                                                       \
-		rc = command_##LOWER##__decode(&cursor, *command);      \
+#define DECODE(LOWER, UPPER, _)                                        \
+	case COMMAND_##UPPER:                                          \
+		*command = raft_malloc(sizeof(struct command##LOWER)); \
+		if (*command == NULL) {                                \
+			return DQLITE_NOMEM;                           \
+		}                                                      \
+		rc = command##LOWER##Decode(&cursor, *command);        \
 		break;
 
-int command__decode(const struct raft_buffer *buf, int *type, void **command)
+int commandDecode(const struct raft_buffer *buf, int *type, void **command)
 {
 	struct header h;
 	struct cursor cursor;
@@ -115,7 +115,7 @@ int command__decode(const struct raft_buffer *buf, int *type, void **command)
 	cursor.p = buf->base;
 	cursor.cap = buf->len;
 
-	rc = header__decode(&cursor, &h);
+	rc = headerDecode(&cursor, &h);
 	if (rc != 0) {
 		return rc;
 	}
@@ -123,7 +123,7 @@ int command__decode(const struct raft_buffer *buf, int *type, void **command)
 		return DQLITE_PROTO;
 	}
 	switch (h.type) {
-		COMMAND__TYPES(DECODE, )
+		COMMAND_TYPES(DECODE, )
 		default:
 			rc = DQLITE_PROTO;
 			break;
@@ -135,35 +135,35 @@ int command__decode(const struct raft_buffer *buf, int *type, void **command)
 	return 0;
 }
 
-int command_frames__page_numbers(const struct command_frames *c,
-				 unsigned long *page_numbers[])
+int commandFramesPageNumbers(const struct commandframes *c,
+			     unsigned long *pageNumbers[])
 {
 	unsigned i;
 	struct cursor cursor;
 
 	cursor.p = c->frames.data;
-	cursor.cap = sizeof(uint64_t) * c->frames.n_pages;
+	cursor.cap = sizeof(uint64_t) * c->frames.nPages;
 
-	*page_numbers =
-	    sqlite3_malloc64(sizeof **page_numbers * c->frames.n_pages);
-	if (*page_numbers == NULL) {
+	*pageNumbers =
+	    sqlite3_malloc64(sizeof **pageNumbers * c->frames.nPages);
+	if (*pageNumbers == NULL) {
 		return DQLITE_NOMEM;
 	}
 
-	for (i = 0; i < c->frames.n_pages; i++) {
+	for (i = 0; i < c->frames.nPages; i++) {
 		uint64_t pgno;
-		int r = uint64__decode(&cursor, &pgno);
+		int r = uint64Decode(&cursor, &pgno);
 		if (r != 0) {
 			return r;
 		}
-		(*page_numbers)[i] = pgno;
+		(*pageNumbers)[i] = pgno;
 	}
 
 	return 0;
 }
 
-void command_frames__pages(const struct command_frames *c, void **pages)
+void commandFramesPages(const struct commandframes *c, void **pages)
 {
 	*pages =
-	    (void *)(c->frames.data + (sizeof(uint64_t) * c->frames.n_pages));
+	    (void *)(c->frames.data + (sizeof(uint64_t) * c->frames.nPages));
 }

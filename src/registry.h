@@ -15,12 +15,12 @@ struct registry
 	queue dbs;
 };
 
-void registry__init(struct registry *r, struct config *config);
-void registry__close(struct registry *r);
+void registryInit(struct registry *r, struct config *config);
+void registryClose(struct registry *r);
 
 /**
  * Get the db with the given filename. If no one is registered, create one.
  */
-int registry__db_get(struct registry *r, const char *filename, struct db **db);
+int registryDbGet(struct registry *r, const char *filename, struct db **db);
 
 #endif /* REGISTRY_H_*/

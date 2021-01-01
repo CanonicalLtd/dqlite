@@ -17,9 +17,9 @@ struct dqlite_node
 	struct sqlite3_vfs vfs;                  /* In-memory VFS */
 	struct registry registry;                /* Databases */
 	struct uv_loop_s loop;                   /* UV loop */
-	struct raft_uv_transport raft_transport; /* Raft libuv transport */
-	struct raft_io raft_io;                  /* libuv I/O */
-	struct raft_fsm raft_fsm;                /* dqlite FSM */
+	struct raft_uv_transport raftTransport;  /* Raft libuv transport */
+	struct raft_io raftIo;                   /* libuv I/O */
+	struct raft_fsm raftFsm;                 /* dqlite FSM */
 	sem_t ready;                             /* Server is ready */
 	sem_t stopped;                           /* Notifiy loop stopped */
 	pthread_mutex_t mutex;                   /* Access incoming queue */
@@ -31,16 +31,16 @@ struct dqlite_node
 	struct uv_async_s stop;                  /* Trigger UV loop stop */
 	struct uv_timer_s startup;               /* Unblock ready sem */
 	struct uv_prepare_s monitor;             /* Raft state change monitor */
-	int raft_state;                          /* Previous raft state */
-	char *bind_address;                      /* Listen address */
+	int raftState;                           /* Previous raft state */
+	char *bindAddress;                       /* Listen address */
 	char errmsg[RAFT_ERRMSG_BUF_SIZE];       /* Last error occurred */
 };
 
-int dqlite__init(struct dqlite_node *d,
-		 dqlite_node_id id,
-		 const char *address,
-		 const char *dir);
+int dqliteInit(struct dqlite_node *d,
+	       dqlite_node_id id,
+	       const char *address,
+	       const char *dir);
 
-void dqlite__close(struct dqlite_node *d);
+void dqliteClose(struct dqlite_node *d);
 
-int dqlite__run(struct dqlite_node *d);
+int dqliteRun(struct dqlite_node *d);

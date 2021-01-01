@@ -9,19 +9,19 @@
 
 #include "munit.h"
 
-void test_logger_setup(const MunitParameter params[], struct logger *l);
-void test_logger_tear_down(struct logger *l);
+void testLoggerSetup(const MunitParameter params[], struct logger *l);
+void testLoggerTearDown(struct logger *l);
 
-struct test_logger
+struct testLogger
 {
 	unsigned id;
 	void *data;
 };
 
-void test_logger_emit(void *data, int level, const char *fmt, va_list args);
+void testLoggerEmit(void *data, int level, const char *fmt, va_list args);
 
 #define FIXTURE_LOGGER struct logger logger;
-#define SETUP_LOGGER test_logger_setup(params, &f->logger);
-#define TEAR_DOWN_LOGGER test_logger_tear_down(&f->logger);
+#define SETUP_LOGGER testLoggerSetup(params, &f->logger);
+#define TEAR_DOWN_LOGGER testLoggerTearDown(&f->logger);
 
 #endif /* TEST_LOGGER_H */

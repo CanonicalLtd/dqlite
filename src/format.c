@@ -9,16 +9,16 @@
 #include "format.h"
 
 /* WAL magic value. Either this value, or the same value with the least
- * significant bit also set (FORMAT__WAL_MAGIC | 0x00000001) is stored in 32-bit
+ * significant bit also set (FORMAT_WAL_MAGIC | 0x00000001) is stored in 32-bit
  * big-endian format in the first 4 bytes of a WAL file.
  *
  * If the LSB is set, then the checksums for each frame within the WAL file are
  * calculated by treating all data as an array of 32-bit big-endian
  * words. Otherwise, they are calculated by interpreting all data as 32-bit
  * little-endian words. */
-#define FORMAT__WAL_MAGIC 0x377f0682
+#define FORMAT_WAL_MAGIC 0x377f0682
 
-#define FORMAT__WAL_MAX_VERSION 3007000
+#define FORMAT_WAL_MAX_VERSION 3007000
 
 static void formatGet32(const uint8_t buf[4], uint32_t *v)
 {

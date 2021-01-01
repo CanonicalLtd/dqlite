@@ -13,62 +13,62 @@ struct fsm
 	struct registry *registry;
 	struct
 	{
-		unsigned n_pages;
-		unsigned long *page_numbers;
+		unsigned nPages;
+		unsigned long *pageNumbers;
 		uint8_t *pages;
 	} pending; /* For upgrades from V1 */
 };
 
-static int apply_open(struct fsm *f, const struct command_open *c)
+static int applyOpen(struct fsm *f, const struct commandopen *c)
 {
 	(void)f;
 	(void)c;
 	return 0;
 }
 
-static int add_pending_pages(struct fsm *f,
-			     unsigned long *page_numbers,
-			     uint8_t *pages,
-			     unsigned n_pages,
-			     unsigned page_size)
+static int addPendingPages(struct fsm *f,
+			   unsigned long *pageNumbers,
+			   uint8_t *pages,
+			   unsigned nPages,
+			   unsigned pageSize)
 {
-	unsigned n = f->pending.n_pages + n_pages;
+	unsigned n = f->pending.nPages + nPages;
 	unsigned i;
 
-	f->pending.page_numbers = sqlite3_realloc64(
-	    f->pending.page_numbers, n * sizeof *f->pending.page_numbers);
+	f->pending.pageNumbers = sqlite3_realloc64(
+	    f->pending.pageNumbers, n * sizeof *f->pending.pageNumbers);
 
-	if (f->pending.page_numbers == NULL) {
+	if (f->pending.pageNumbers == NULL) {
 		return DQLITE_NOMEM;
 	}
 
-	f->pending.pages = sqlite3_realloc64(f->pending.pages, n * page_size);
+	f->pending.pages = sqlite3_realloc64(f->pending.pages, n * pageSize);
 
 	if (f->pending.pages == NULL) {
 		return DQLITE_NOMEM;
 	}
 
-	for (i = 0; i < n_pages; i++) {
-		unsigned j = f->pending.n_pages + i;
-		f->pending.page_numbers[j] = page_numbers[i];
-		memcpy(f->pending.pages + j * page_size,
-		       (uint8_t *)pages + i * page_size, page_size);
+	for (i = 0; i < nPages; i++) {
+		unsigned j = f->pending.nPages + i;
+		f->pending.pageNumbers[j] = pageNumbers[i];
+		memcpy(f->pending.pages + j * pageSize,
+		       (uint8_t *)pages + i * pageSize, pageSize);
 	}
-	f->pending.n_pages = n;
+	f->pending.nPages = n;
 
 	return 0;
 }
 
-static int apply_frames(struct fsm *f, const struct command_frames *c)
+static int applyFrames(struct fsm *f, const struct commandframes *c)
 {
 	struct db *db;
 	sqlite3_vfs *vfs;
-	unsigned long *page_numbers;
+	unsigned long *pageNumbers;
 	void *pages;
 	int exists;
 	int rv;
 
-	rv = registry__db_get(f->registry, c->filename, &db);
+	rv = registryDbGet(f->registry, c->filename, &db);
 	if (rv != 0) {
 		return rv;
 	}
@@ -81,7 +81,7 @@ static int apply_frames(struct fsm *f, const struct command_frames *c)
 	assert(rv == 0);
 
 	if (!exists) {
-		rv = db__open_follower(db);
+		rv = dbOpenFollower(db);
 		if (rv != 0) {
 			return rv;
 		}
@@ -89,75 +89,73 @@ static int apply_frames(struct fsm *f, const struct command_frames *c)
 		db->follower = NULL;
 	}
 
-	rv = command_frames__page_numbers(c, &page_numbers);
+	rv = commandFramesPageNumbers(c, &pageNumbers);
 	if (rv != 0) {
 		return rv;
 	}
 
-	command_frames__pages(c, &pages);
+	commandFramesPages(c, &pages);
 
 	/* If the commit marker is set, we apply the changes directly to the
 	 * VFS. Otherwise, if the commit marker is not set, this must be an
 	 * upgrade from V1, we accumulate uncommitted frames in memory until the
 	 * final commit or a rollback. */
-	if (c->is_commit) {
-		if (f->pending.n_pages > 0) {
-			rv = add_pending_pages(f, page_numbers, pages,
-					       c->frames.n_pages,
-					       db->config->page_size);
+	if (c->isCommit) {
+		if (f->pending.nPages > 0) {
+			rv = addPendingPages(f, pageNumbers, pages,
+					     c->frames.nPages,
+					     db->config->pageSize);
 			if (rv != 0) {
 				return DQLITE_NOMEM;
 			}
-			rv =
-			    VfsApply(vfs, db->filename, f->pending.n_pages,
-				     f->pending.page_numbers, f->pending.pages);
+			rv = VfsApply(vfs, db->filename, f->pending.nPages,
+				      f->pending.pageNumbers, f->pending.pages);
 			if (rv != 0) {
 				return rv;
 			}
-			sqlite3_free(f->pending.page_numbers);
+			sqlite3_free(f->pending.pageNumbers);
 			sqlite3_free(f->pending.pages);
-			f->pending.n_pages = 0;
-			f->pending.page_numbers = NULL;
+			f->pending.nPages = 0;
+			f->pending.pageNumbers = NULL;
 			f->pending.pages = NULL;
 		} else {
-			rv = VfsApply(vfs, db->filename, c->frames.n_pages,
-				      page_numbers, pages);
+			rv = VfsApply(vfs, db->filename, c->frames.nPages,
+				      pageNumbers, pages);
 			if (rv != 0) {
 				return rv;
 			}
 		}
 	} else {
-		rv =
-		    add_pending_pages(f, page_numbers, pages, c->frames.n_pages,
-				      db->config->page_size);
+		rv = addPendingPages(f, pageNumbers, pages, c->frames.nPages,
+				     db->config->pageSize);
 		if (rv != 0) {
 			return DQLITE_NOMEM;
 		}
 	}
 
-	sqlite3_free(page_numbers);
+	sqlite3_free(pageNumbers);
 
 	return 0;
 }
 
-static int apply_undo(struct fsm *f, const struct command_undo *c)
+static int applyUndo(struct fsm *f, const struct commandundo *c)
 {
 	(void)c;
 
-	if (f->pending.n_pages == 0) {
+	if (f->pending.nPages == 0) {
 		return 0;
 	}
 
-	sqlite3_free(f->pending.page_numbers);
+	sqlite3_free(f->pending.pageNumbers);
 	sqlite3_free(f->pending.pages);
-	f->pending.n_pages = 0;
-	f->pending.page_numbers = NULL;
+	f->pending.nPages = 0;
+	f->pending.pageNumbers = NULL;
 	f->pending.pages = NULL;
 
 	return 0;
 }
 
-static int apply_checkpoint(struct fsm *f, const struct command_checkpoint *c)
+static int applyCheckpoint(struct fsm *f, const struct commandcheckpoint *c)
 {
 	struct db *db;
 	struct sqlite3_file *file;
@@ -165,11 +163,11 @@ static int apply_checkpoint(struct fsm *f, const struct command_checkpoint *c)
 	int ckpt;
 	int rv;
 
-	rv = registry__db_get(f->registry, c->filename, &db);
+	rv = registryDbGet(f->registry, c->filename, &db);
 	assert(rv == 0); /* We have registered this filename before. */
 
 	/* Use a new connection to force re-opening the WAL. */
-	rv = db__open_follower(db);
+	rv = dbOpenFollower(db);
 	if (rv != 0) {
 		return rv;
 	}
@@ -201,15 +199,15 @@ static int apply_checkpoint(struct fsm *f, const struct command_checkpoint *c)
 	return 0;
 }
 
-static int fsm__apply(struct raft_fsm *fsm,
-		      const struct raft_buffer *buf,
-		      void **result)
+static int fsmApply(struct raft_fsm *fsm,
+		    const struct raft_buffer *buf,
+		    void **result)
 {
 	struct fsm *f = fsm->data;
 	int type;
 	void *command;
 	int rc;
-	rc = command__decode(buf, &type, &command);
+	rc = commandDecode(buf, &type, &command);
 	if (rc != 0) {
 		// errorf(f->logger, "fsm: decode command: %d", rc);
 		goto err;
@@ -217,20 +215,20 @@ static int fsm__apply(struct raft_fsm *fsm,
 
 	switch (type) {
 		case COMMAND_OPEN:
-			rc = apply_open(f, command);
+			rc = applyOpen(f, command);
 			break;
 		case COMMAND_FRAMES:
-			rc = apply_frames(f, command);
+			rc = applyFrames(f, command);
 			break;
 		case COMMAND_UNDO:
-			rc = apply_undo(f, command);
+			rc = applyUndo(f, command);
 			break;
 		case COMMAND_CHECKPOINT:
-			rc = apply_checkpoint(f, command);
+			rc = applyCheckpoint(f, command);
 			break;
 		default:
 			rc = RAFT_MALFORMED;
-			goto err_after_command_decode;
+			goto errAfterCommandDecode;
 	}
 	raft_free(command);
 
@@ -238,7 +236,7 @@ static int fsm__apply(struct raft_fsm *fsm,
 
 	return 0;
 
-err_after_command_decode:
+errAfterCommandDecode:
 	raft_free(command);
 err:
 	return rc;
@@ -249,15 +247,15 @@ err:
 #define SNAPSHOT_HEADER(X, ...)          \
 	X(uint64, format, ##__VA_ARGS__) \
 	X(uint64, n, ##__VA_ARGS__)
-SERIALIZE__DEFINE(snapshotHeader, SNAPSHOT_HEADER);
-SERIALIZE__IMPLEMENT(snapshotHeader, SNAPSHOT_HEADER);
+SERIALIZE_DEFINE(snapshotHeader, SNAPSHOT_HEADER);
+SERIALIZE_IMPLEMENT(snapshotHeader, SNAPSHOT_HEADER);
 
-#define SNAPSHOT_DATABASE(X, ...)           \
-	X(text, filename, ##__VA_ARGS__)    \
-	X(uint64, main_size, ##__VA_ARGS__) \
-	X(uint64, wal_size, ##__VA_ARGS__)
-SERIALIZE__DEFINE(snapshotDatabase, SNAPSHOT_DATABASE);
-SERIALIZE__IMPLEMENT(snapshotDatabase, SNAPSHOT_DATABASE);
+#define SNAPSHOT_DATABASE(X, ...)          \
+	X(text, filename, ##__VA_ARGS__)   \
+	X(uint64, mainSize, ##__VA_ARGS__) \
+	X(uint64, walSize, ##__VA_ARGS__)
+SERIALIZE_DEFINE(snapshotDatabase, SNAPSHOT_DATABASE);
+SERIALIZE_IMPLEMENT(snapshotDatabase, SNAPSHOT_DATABASE);
 
 /* Encode the global snapshot header. */
 static int encodeSnapshotHeader(unsigned n, struct raft_buffer *buf)
@@ -266,13 +264,13 @@ static int encodeSnapshotHeader(unsigned n, struct raft_buffer *buf)
 	void *cursor;
 	header.format = SNAPSHOT_FORMAT;
 	header.n = n;
-	buf->len = snapshotHeader__sizeof(&header);
+	buf->len = snapshotHeaderSizeof(&header);
 	buf->base = raft_malloc(buf->len);
 	if (buf->base == NULL) {
 		return RAFT_NOMEM;
 	}
 	cursor = buf->base;
-	snapshotHeader__encode(&header, &cursor);
+	snapshotHeaderEncode(&header, &cursor);
 	return 0;
 }
 
@@ -281,7 +279,7 @@ static int encodeDatabase(struct db *db, struct raft_buffer bufs[2])
 {
 	struct snapshotDatabase header;
 	sqlite3_vfs *vfs;
-	uint32_t database_size = 0;
+	uint32_t databaseSize = 0;
 	uint8_t *page;
 	void *cursor;
 	int rv;
@@ -296,27 +294,27 @@ static int encodeDatabase(struct db *db, struct raft_buffer bufs[2])
 
 	/* Extract the database size from the first page. */
 	page = bufs[1].base;
-	database_size += (uint32_t)(page[28] << 24);
-	database_size += (uint32_t)(page[29] << 16);
-	database_size += (uint32_t)(page[30] << 8);
-	database_size += (uint32_t)(page[31]);
+	databaseSize += (uint32_t)(page[28] << 24);
+	databaseSize += (uint32_t)(page[29] << 16);
+	databaseSize += (uint32_t)(page[30] << 8);
+	databaseSize += (uint32_t)(page[31]);
 
-	header.main_size = database_size * db->config->page_size;
-	header.wal_size = bufs[1].len - header.main_size;
+	header.mainSize = databaseSize * db->config->pageSize;
+	header.walSize = bufs[1].len - header.mainSize;
 
 	/* Database header. */
-	bufs[0].len = snapshotDatabase__sizeof(&header);
+	bufs[0].len = snapshotDatabaseSizeof(&header);
 	bufs[0].base = raft_malloc(bufs[0].len);
 	if (bufs[0].base == NULL) {
 		rv = RAFT_NOMEM;
-		goto err_after_snapshot;
+		goto errAfterSnapshot;
 	}
 	cursor = bufs[0].base;
-	snapshotDatabase__encode(&header, &cursor);
+	snapshotDatabaseEncode(&header, &cursor);
 
 	return 0;
 
-err_after_snapshot:
+errAfterSnapshot:
 	raft_free(bufs[1].base);
 err:
 	assert(rv != 0);
@@ -333,11 +331,11 @@ static int decodeDatabase(struct fsm *f, struct cursor *cursor)
 	int exists;
 	int rv;
 
-	rv = snapshotDatabase__decode(cursor, &header);
+	rv = snapshotDatabaseDecode(cursor, &header);
 	if (rv != 0) {
 		return rv;
 	}
-	rv = registry__db_get(f->registry, header.filename, &db);
+	rv = registryDbGet(f->registry, header.filename, &db);
 	if (rv != 0) {
 		return rv;
 	}
@@ -350,7 +348,7 @@ static int decodeDatabase(struct fsm *f, struct cursor *cursor)
 	assert(rv == 0);
 
 	if (!exists) {
-		rv = db__open_follower(db);
+		rv = dbOpenFollower(db);
 		if (rv != 0) {
 			return rv;
 		}
@@ -358,7 +356,7 @@ static int decodeDatabase(struct fsm *f, struct cursor *cursor)
 		db->follower = NULL;
 	}
 
-	n = header.main_size + header.wal_size;
+	n = header.mainSize + header.walSize;
 	rv = VfsRestore(vfs, db->filename, cursor->p, n);
 	if (rv != 0) {
 		return rv;
@@ -368,9 +366,9 @@ static int decodeDatabase(struct fsm *f, struct cursor *cursor)
 	return 0;
 }
 
-static int fsm__snapshot(struct raft_fsm *fsm,
-			 struct raft_buffer *bufs[],
-			 unsigned *n_bufs)
+static int fsmSnapshot(struct raft_fsm *fsm,
+		       struct raft_buffer *bufs[],
+		       unsigned *nBufs)
 {
 	struct fsm *f = fsm->data;
 	queue *head;
@@ -381,18 +379,18 @@ static int fsm__snapshot(struct raft_fsm *fsm,
 
 	/* First count how many databases we have and check that no transaction
 	 * is in progress. */
-	QUEUE__FOREACH(head, &f->registry->dbs)
+	QUEUE_FOREACH(head, &f->registry->dbs)
 	{
-		db = QUEUE__DATA(head, struct db, queue);
-		if (db->tx_id != 0) {
+		db = QUEUE_DATA(head, struct db, queue);
+		if (db->txId != 0) {
 			return RAFT_BUSY;
 		}
 		n++;
 	}
 
-	*n_bufs = 1;      /* Snapshot header */
-	*n_bufs += n * 2; /* Database header an content */
-	*bufs = raft_malloc(*n_bufs * sizeof **bufs);
+	*nBufs = 1;      /* Snapshot header */
+	*nBufs += n * 2; /* Database header an content */
+	*bufs = raft_malloc(*nBufs * sizeof **bufs);
 	if (*bufs == NULL) {
 		rv = RAFT_NOMEM;
 		goto err;
@@ -400,36 +398,36 @@ static int fsm__snapshot(struct raft_fsm *fsm,
 
 	rv = encodeSnapshotHeader(n, &(*bufs)[0]);
 	if (rv != 0) {
-		goto err_after_bufs_alloc;
+		goto errAfterBufsAlloc;
 	}
 
 	/* Encode individual databases. */
 	i = 1;
-	QUEUE__FOREACH(head, &f->registry->dbs)
+	QUEUE_FOREACH(head, &f->registry->dbs)
 	{
-		db = QUEUE__DATA(head, struct db, queue);
+		db = QUEUE_DATA(head, struct db, queue);
 		rv = encodeDatabase(db, &(*bufs)[i]);
 		if (rv != 0) {
-			goto err_after_encode_header;
+			goto errAfterEncodeHeader;
 		}
 		i += 2;
 	}
 
 	return 0;
 
-err_after_encode_header:
+errAfterEncodeHeader:
 	do {
 		raft_free((*bufs)[i].base);
 		i--;
 	} while (i > 0);
-err_after_bufs_alloc:
+errAfterBufsAlloc:
 	raft_free(*bufs);
 err:
 	assert(rv != 0);
 	return rv;
 }
 
-static int fsm__restore(struct raft_fsm *fsm, struct raft_buffer *buf)
+static int fsmRestore(struct raft_fsm *fsm, struct raft_buffer *buf)
 {
 	struct fsm *f = fsm->data;
 	struct cursor cursor = {buf->base, buf->len};
@@ -437,7 +435,7 @@ static int fsm__restore(struct raft_fsm *fsm, struct raft_buffer *buf)
 	unsigned i;
 	int rv;
 
-	rv = snapshotHeader__decode(&cursor, &header);
+	rv = snapshotHeaderDecode(&cursor, &header);
 	if (rv != 0) {
 		return rv;
 	}
@@ -457,9 +455,9 @@ static int fsm__restore(struct raft_fsm *fsm, struct raft_buffer *buf)
 	return 0;
 }
 
-int fsm__init(struct raft_fsm *fsm,
-	      struct config *config,
-	      struct registry *registry)
+int fsmInit(struct raft_fsm *fsm,
+	    struct config *config,
+	    struct registry *registry)
 {
 	struct fsm *f = raft_malloc(sizeof *f);
 
@@ -469,20 +467,20 @@ int fsm__init(struct raft_fsm *fsm,
 
 	f->logger = &config->logger;
 	f->registry = registry;
-	f->pending.n_pages = 0;
-	f->pending.page_numbers = NULL;
+	f->pending.nPages = 0;
+	f->pending.pageNumbers = NULL;
 	f->pending.pages = NULL;
 
 	fsm->version = 1;
 	fsm->data = f;
-	fsm->apply = fsm__apply;
-	fsm->snapshot = fsm__snapshot;
-	fsm->restore = fsm__restore;
+	fsm->apply = fsmApply;
+	fsm->snapshot = fsmSnapshot;
+	fsm->restore = fsmRestore;
 
 	return 0;
 }
 
-void fsm__close(struct raft_fsm *fsm)
+void fsmClose(struct raft_fsm *fsm)
 {
 	struct fsm *f = fsm->data;
 	raft_free(f);

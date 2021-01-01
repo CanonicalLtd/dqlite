@@ -1,3 +1,3 @@
 #include "message.h"
 
-SERIALIZE__IMPLEMENT(message, MESSAGE);
+SERIALIZE_IMPLEMENT(message, MESSAGE);

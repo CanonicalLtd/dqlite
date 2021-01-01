@@ -4,15 +4,15 @@
 
 #include "../../lib/runner.h"
 
-TEST_MODULE(lib_registry);
+TEST_MODULE(libRegistry);
 
-struct test_item
+struct testItem
 {
 	size_t id;
 	int *ptr;
 };
 
-static void test_item_init(struct test_item *i)
+static void testItem_init(struct testItem *i)
 {
 	munit_assert(i != NULL);
 
@@ -20,7 +20,7 @@ static void test_item_init(struct test_item *i)
 	*i->ptr = 123;
 }
 
-static void test_item_close(struct test_item *i)
+static void testItem_close(struct testItem *i)
 {
 	munit_assert(i != NULL);
 	munit_assert(i->ptr != NULL);
@@ -28,35 +28,35 @@ static void test_item_close(struct test_item *i)
 	sqlite3_free(i->ptr);
 }
 
-static const char *test_item_hash(struct test_item *i)
+static const char *testItemHash(struct testItem *i)
 {
 	munit_assert(i != NULL);
 
 	return "x";
 }
 
-REGISTRY(test_registry, test_item);
-REGISTRY_METHODS(test_registry, test_item);
+REGISTRY(testRegistry, testItem);
+REGISTRY_METHODS(testRegistry, testItem);
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
-	struct test_registry *registry;
+	struct testRegistry *registry;
 
 	(void)params;
-	(void)user_data;
+	(void)userData;
 
-	registry = (struct test_registry *)munit_malloc(sizeof(*registry));
+	registry = (struct testRegistry *)munit_malloc(sizeof(*registry));
 
-	test_registry_init(registry);
+	testRegistry_init(registry);
 
 	return registry;
 }
 
 static void tear_down(void *data)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 
-	test_registry_close(registry);
+	testRegistry_close(registry);
 	free(registry);
 }
 
@@ -64,20 +64,19 @@ TEST_SUITE(add);
 TEST_SETUP(add, setup);
 TEST_TEAR_DOWN(add, tear_down);
 
-static char *test_add_n[] = {"1", "2", "3", "5",  "6",
-			     "7", "8", "9", "10", NULL};
+static char *testAddN[] = {"1", "2", "3", "5", "6", "7", "8", "9", "10", NULL};
 
-static MunitParameterEnum test_add_params[] = {
-    {"n", test_add_n},
+static MunitParameterEnum testAddParams[] = {
+    {"n", testAddN},
     {NULL, NULL},
 };
 
 /* Add N items. */
-TEST_CASE(add, basic, test_add_params)
+TEST_CASE(add, basic, testAddParams)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item;
+	struct testItem *item;
 	int n;
 	int i;
 
@@ -85,7 +84,7 @@ TEST_CASE(add, basic, test_add_params)
 	munit_assert_int(n, >, 0);
 
 	for (i = 0; i < n; i++) {
-		err = test_registry_add(registry, &item);
+		err = testRegistry_add(registry, &item);
 		munit_assert_int(err, ==, 0);
 
 		munit_assert_ptr_not_equal(item, NULL);
@@ -98,45 +97,45 @@ TEST_CASE(add, basic, test_add_params)
 
 /* Add three items, delete the second, and then add another one. The original ID
  * of the deleted item gets reused. */
-TEST_CASE(add, del_add, NULL)
+TEST_CASE(add, delAdd, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item1;
-	struct test_item *item2;
-	struct test_item *item3;
-	struct test_item *item4;
-	int item2_id;
+	struct testItem *item1;
+	struct testItem *item2;
+	struct testItem *item3;
+	struct testItem *item4;
+	int item2Id;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item1);
+	err = testRegistry_add(registry, &item1);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_add(registry, &item2);
+	err = testRegistry_add(registry, &item2);
 	munit_assert_int(err, ==, 0);
-	item2_id = item2->id;
+	item2Id = item2->id;
 
-	err = test_registry_add(registry, &item3);
-	munit_assert_int(err, ==, 0);
-
-	err = test_registry_del(registry, item2);
+	err = testRegistry_add(registry, &item3);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_add(registry, &item4);
+	err = testRegistryDel(registry, item2);
 	munit_assert_int(err, ==, 0);
 
-	munit_assert_int(item4->id, ==, item2_id);
+	err = testRegistry_add(registry, &item4);
+	munit_assert_int(err, ==, 0);
+
+	munit_assert_int(item4->id, ==, item2Id);
 
 	return MUNIT_OK;
 }
 
 /* Add N items and then delete them all. */
-TEST_CASE(add, and_del, test_add_params)
+TEST_CASE(add, andDel, testAddParams)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item **items;
+	struct testItem **items;
 	int n;
 	int i;
 
@@ -146,12 +145,12 @@ TEST_CASE(add, and_del, test_add_params)
 	items = munit_malloc(n * sizeof(*items));
 
 	for (i = 0; i < n; i++) {
-		err = test_registry_add(registry, &items[i]);
+		err = testRegistry_add(registry, &items[i]);
 		munit_assert_int(err, ==, 0);
 	}
 
 	for (i = 0; i < n; i++) {
-		err = test_registry_del(registry, items[i]);
+		err = testRegistryDel(registry, items[i]);
 		munit_assert_int(err, ==, 0);
 	}
 
@@ -167,16 +166,16 @@ TEST_TEAR_DOWN(get, tear_down);
 /* Retrieve a previously added item. */
 TEST_CASE(get, basic, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item;
+	struct testItem *item;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item);
+	err = testRegistry_add(registry, &item);
 	munit_assert_int(err, ==, 0);
 
-	munit_assert_ptr_equal(test_registry_get(registry, item->id), item);
+	munit_assert_ptr_equal(testRegistry_get(registry, item->id), item);
 
 	return MUNIT_OK;
 }
@@ -185,31 +184,31 @@ TEST_CASE(get, basic, NULL)
  * former ID results in a NULL pointer. */
 TEST_CASE(get, deleted, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item;
+	struct testItem *item;
 	size_t id;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item);
+	err = testRegistry_add(registry, &item);
 	munit_assert_int(err, ==, 0);
 
 	id = item->id;
 
-	err = test_registry_del(registry, item);
+	err = testRegistryDel(registry, item);
 	munit_assert_int(err, ==, 0);
 
-	munit_assert_ptr_equal(test_registry_get(registry, id), NULL);
+	munit_assert_ptr_equal(testRegistry_get(registry, id), NULL);
 
 	return MUNIT_OK;
 }
 
 /* Retrieve an item with an ID bigger than the current registry's length. */
-TEST_CASE(get, out_of_bound, NULL)
+TEST_CASE(get, outOfBound, NULL)
 {
-	struct test_registry *registry = data;
-	struct test_item *item = test_registry_get(registry, 123);
+	struct testRegistry *registry = data;
+	struct testItem *item = testRegistry_get(registry, 123);
 
 	(void)params;
 
@@ -225,17 +224,17 @@ TEST_TEAR_DOWN(idx, tear_down);
 /* Find the index of a matching item. */
 TEST_CASE(idx, found, NULL)
 {
-	struct test_registry *registry = data;
-	struct test_item *item;
+	struct testRegistry *registry = data;
+	struct testItem *item;
 	size_t i;
 	int err;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item);
+	err = testRegistry_add(registry, &item);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_idx(registry, "x", &i);
+	err = testRegistryIdx(registry, "x", &i);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(i, ==, item->id);
@@ -244,26 +243,26 @@ TEST_CASE(idx, found, NULL)
 }
 
 /* No matching item. */
-TEST_CASE(idx, not_found, NULL)
+TEST_CASE(idx, notFound, NULL)
 {
-	struct test_registry *registry = data;
-	struct test_item *item1;
-	struct test_item *item2;
+	struct testRegistry *registry = data;
+	struct testItem *item1;
+	struct testItem *item2;
 	size_t i;
 	int err;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item1);
+	err = testRegistry_add(registry, &item1);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_add(registry, &item2);
+	err = testRegistry_add(registry, &item2);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_del(registry, item1);
+	err = testRegistryDel(registry, item1);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_idx(registry, "y", &i);
+	err = testRegistryIdx(registry, "y", &i);
 	munit_assert_int(err, ==, DQLITE_NOTFOUND);
 
 	return MUNIT_OK;
@@ -276,16 +275,16 @@ TEST_TEAR_DOWN(del, tear_down);
 /* Delete an item from the registry. */
 TEST_CASE(del, basic, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item;
+	struct testItem *item;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item);
+	err = testRegistry_add(registry, &item);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_del(registry, item);
+	err = testRegistryDel(registry, item);
 	munit_assert_int(err, ==, 0);
 
 	return MUNIT_OK;
@@ -294,21 +293,21 @@ TEST_CASE(del, basic, NULL)
 /* Deleting an item twice results in an error. */
 TEST_CASE(del, twice, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item;
-	struct test_item item_clone;
+	struct testItem *item;
+	struct testItem itemClone;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item);
+	err = testRegistry_add(registry, &item);
 	munit_assert_int(err, ==, 0);
-	item_clone.id = item->id;
+	itemClone.id = item->id;
 
-	err = test_registry_del(registry, item);
+	err = testRegistryDel(registry, item);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_del(registry, &item_clone);
+	err = testRegistryDel(registry, &itemClone);
 	munit_assert_int(err, ==, DQLITE_NOTFOUND);
 
 	return MUNIT_OK;
@@ -316,44 +315,44 @@ TEST_CASE(del, twice, NULL)
 
 /* Deleting an item twice results in an error, also if the item being deleted
  * again has an ID lower than the highest one. */
-TEST_CASE(del, twice_middle, NULL)
+TEST_CASE(del, twiceMiddle, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item1;
-	struct test_item *item2;
-	struct test_item item1_clone;
+	struct testItem *item1;
+	struct testItem *item2;
+	struct testItem item1Clone;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item1);
+	err = testRegistry_add(registry, &item1);
 	munit_assert_int(err, ==, 0);
-	item1_clone.id = item1->id;
+	item1Clone.id = item1->id;
 
-	err = test_registry_add(registry, &item2);
-	munit_assert_int(err, ==, 0);
-
-	err = test_registry_del(registry, item1);
+	err = testRegistry_add(registry, &item2);
 	munit_assert_int(err, ==, 0);
 
-	err = test_registry_del(registry, &item1_clone);
+	err = testRegistryDel(registry, item1);
+	munit_assert_int(err, ==, 0);
+
+	err = testRegistryDel(registry, &item1Clone);
 	munit_assert_int(err, ==, DQLITE_NOTFOUND);
 
 	return MUNIT_OK;
 }
 
 /* Deleting an item with an unknown ID results in an error. */
-TEST_CASE(del, out_of_bounds, NULL)
+TEST_CASE(del, outOfBounds, NULL)
 {
-	struct test_registry *registry = data;
-	struct test_item item;
+	struct testRegistry *registry = data;
+	struct testItem item;
 	int err;
 
 	(void)params;
 
 	item.id = 123;
 
-	err = test_registry_del(registry, &item);
+	err = testRegistryDel(registry, &item);
 
 	munit_assert_int(err, ==, DQLITE_NOTFOUND);
 
@@ -363,25 +362,25 @@ TEST_CASE(del, out_of_bounds, NULL)
 /* Add several items and then delete them. */
 TEST_CASE(del, many, NULL)
 {
-	struct test_registry *registry = data;
+	struct testRegistry *registry = data;
 	int err;
-	struct test_item *item1;
-	struct test_item *item2;
-	struct test_item *item3;
+	struct testItem *item1;
+	struct testItem *item2;
+	struct testItem *item3;
 
 	(void)params;
 
-	err = test_registry_add(registry, &item1);
+	err = testRegistry_add(registry, &item1);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(item1->id, ==, 0);
 
-	err = test_registry_add(registry, &item2);
+	err = testRegistry_add(registry, &item2);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(item2->id, ==, 1);
 
-	err = test_registry_add(registry, &item3);
+	err = testRegistry_add(registry, &item3);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(item3->id, ==, 2);
@@ -389,13 +388,13 @@ TEST_CASE(del, many, NULL)
 	munit_assert_int(3, ==, registry->len);
 	munit_assert_int(4, ==, registry->cap);
 
-	err = test_registry_del(registry, item3);
+	err = testRegistryDel(registry, item3);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(2, ==, registry->len);
 	munit_assert_int(4, ==, registry->cap);
 
-	err = test_registry_del(registry, item2);
+	err = testRegistryDel(registry, item2);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(1, ==, registry->len);

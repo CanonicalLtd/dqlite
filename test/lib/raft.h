@@ -16,39 +16,39 @@
 #include "munit.h"
 #include "uv.h"
 
-#define FIXTURE_RAFT                             \
-	char *dir;                               \
-	struct uv_loop_s loop;                   \
-	struct raft_uv_transport raft_transport; \
-	struct raft_io raft_io;                  \
-	struct raft_fsm fsm;                     \
+#define FIXTURE_RAFT                            \
+	char *dir;                              \
+	struct uv_loop_s loop;                  \
+	struct raft_uv_transport raftTransport; \
+	struct raft_io raftIo;                  \
+	struct raft_fsm fsm;                    \
 	struct raft raft
 
-#define SETUP_RAFT                                                       \
-	{                                                                \
-		int rv2;                                                 \
-		f->dir = test_dir_setup();                               \
-		test_uv_setup(params, &f->loop);                         \
-		rv2 = raftProxyInit(&f->raft_transport, &f->loop);       \
-		munit_assert_int(rv2, ==, 0);                            \
-		rv2 = raft_uv_init(&f->raft_io, &f->loop, f->dir,        \
-				   &f->raft_transport);                  \
-		munit_assert_int(rv2, ==, 0);                            \
-		rv2 = fsm__init(&f->fsm, &f->config, &f->registry);      \
-		munit_assert_int(rv2, ==, 0);                            \
-		rv2 = raft_init(&f->raft, &f->raft_io, &f->fsm, 1, "1"); \
-		munit_assert_int(rv2, ==, 0);                            \
+#define SETUP_RAFT                                                      \
+	{                                                               \
+		int rv2;                                                \
+		f->dir = testDirSetup();                                \
+		testUvSetup(params, &f->loop);                          \
+		rv2 = raftProxyInit(&f->raftTransport, &f->loop);       \
+		munit_assert_int(rv2, ==, 0);                           \
+		rv2 = raft_uv_init(&f->raftIo, &f->loop, f->dir,        \
+				   &f->raftTransport);                  \
+		munit_assert_int(rv2, ==, 0);                           \
+		rv2 = fsmInit(&f->fsm, &f->config, &f->registry);       \
+		munit_assert_int(rv2, ==, 0);                           \
+		rv2 = raft_init(&f->raft, &f->raftIo, &f->fsm, 1, "1"); \
+		munit_assert_int(rv2, ==, 0);                           \
 	}
 
-#define TEAR_DOWN_RAFT                              \
-	{                                           \
-		raft_close(&f->raft, NULL);         \
-		test_uv_stop(&f->loop);             \
-		raft_uv_close(&f->raft_io);         \
-		fsm__close(&f->fsm);                \
-		test_uv_tear_down(&f->loop);        \
-		raftProxyClose(&f->raft_transport); \
-		test_dir_tear_down(f->dir);         \
+#define TEAR_DOWN_RAFT                             \
+	{                                          \
+		raft_close(&f->raft, NULL);        \
+		testUvStop(&f->loop);              \
+		raft_uv_close(&f->raftIo);         \
+		fsmClose(&f->fsm);                 \
+		testUvTearDown(&f->loop);          \
+		raftProxyClose(&f->raftTransport); \
+		testDirTearDown(f->dir);           \
 	}
 
 /**

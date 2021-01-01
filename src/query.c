@@ -5,14 +5,14 @@
 /* Return the type code of the i'th column value.
  *
  * TODO: find a better way to handle time types. */
-static int value_type(sqlite3_stmt *stmt, int i)
+static int valueType(sqlite3_stmt *stmt, int i)
 {
 	int type = sqlite3_column_type(stmt, i);
-	const char *column_type_name = sqlite3_column_decltype(stmt, i);
-	if (column_type_name != NULL) {
-		if ((strcasecmp(column_type_name, "DATETIME") == 0)  ||
-		    (strcasecmp(column_type_name, "DATE") == 0)      ||
-		    (strcasecmp(column_type_name, "TIMESTAMP") == 0)) {
+	const char *columnTypeName = sqlite3_column_decltype(stmt, i);
+	if (columnTypeName != NULL) {
+		if ((strcasecmp(columnTypeName, "DATETIME") == 0) ||
+		    (strcasecmp(columnTypeName, "DATE") == 0) ||
+		    (strcasecmp(columnTypeName, "TIMESTAMP") == 0)) {
 			if (type == SQLITE_INTEGER) {
 				type = DQLITE_UNIXTIME;
 			} else {
@@ -20,7 +20,7 @@ static int value_type(sqlite3_stmt *stmt, int i)
 				       type == SQLITE_NULL);
 				type = DQLITE_ISO8601;
 			}
-		} else if (strcasecmp(column_type_name, "BOOLEAN") == 0) {
+		} else if (strcasecmp(columnTypeName, "BOOLEAN") == 0) {
 			assert(type == SQLITE_INTEGER || type == SQLITE_NULL);
 			type = DQLITE_BOOLEAN;
 		}
@@ -31,13 +31,13 @@ static int value_type(sqlite3_stmt *stmt, int i)
 }
 
 /* Append a single row to the message. */
-static int encode_row(sqlite3_stmt *stmt, struct buffer *buffer, int n)
+static int encodeRow(sqlite3_stmt *stmt, struct buffer *buffer, int n)
 {
-	struct tuple_encoder encoder;
+	struct tupleEncoder encoder;
 	int rc;
 	int i;
 
-	rc = tuple_encoder__init(&encoder, (unsigned)n, TUPLE__ROW, buffer);
+	rc = tupleEncoderInit(&encoder, (unsigned)n, TUPLE_ROW, buffer);
 	if (rc != 0) {
 		return SQLITE_ERROR;
 	}
@@ -46,7 +46,7 @@ static int encode_row(sqlite3_stmt *stmt, struct buffer *buffer, int n)
 	for (i = 0; i < n; i++) {
 		/* Figure the type */
 		struct value value;
-		value.type = value_type(stmt, i);
+		value.type = valueType(stmt, i);
 		switch (value.type) {
 			case SQLITE_INTEGER:
 				value.integer =
@@ -88,7 +88,7 @@ static int encode_row(sqlite3_stmt *stmt, struct buffer *buffer, int n)
 				return SQLITE_ERROR;
 		}
 
-		rc = tuple_encoder__next(&encoder, &value);
+		rc = tupleEncoderNext(&encoder, &value);
 		if (rc != 0) {
 			return rc;
 		}
@@ -97,7 +97,8 @@ static int encode_row(sqlite3_stmt *stmt, struct buffer *buffer, int n)
 	return SQLITE_OK;
 }
 
-int query__batch(sqlite3_stmt *stmt, struct buffer *buffer) {
+int queryBatch(sqlite3_stmt *stmt, struct buffer *buffer)
+{
 	int n; /* Column count */
 	int i;
 	uint64_t n64;
@@ -111,23 +112,23 @@ int query__batch(sqlite3_stmt *stmt, struct buffer *buffer) {
 	n64 = (uint64_t)n;
 
 	/* Insert the column count */
-	cursor = buffer__advance(buffer, sizeof(uint64_t));
+	cursor = bufferAdvance(buffer, sizeof(uint64_t));
 	assert(cursor != NULL);
-	uint64__encode(&n64, &cursor);
+	uint64Encode(&n64, &cursor);
 
 	/* Insert the column names */
 	for (i = 0; i < n; i++) {
 		const char *name = sqlite3_column_name(stmt, i);
-		cursor = buffer__advance(buffer, text__sizeof(&name));
+		cursor = bufferAdvance(buffer, textSizeof(&name));
 		if (cursor == NULL) {
 			return SQLITE_NOMEM;
 		}
-		text__encode(&name, &cursor);
+		textEncode(&name, &cursor);
 	}
 
 	/* Insert the rows. */
 	do {
-		if (buffer__offset(buffer) >= buffer->page_size) {
+		if (bufferOffset(buffer) >= buffer->pageSize) {
 			/* If we are already filled a memory page, let's break
 			 * for now, we'll send more rows in a separate
 			 * response. */
@@ -138,7 +139,7 @@ int query__batch(sqlite3_stmt *stmt, struct buffer *buffer) {
 		if (rc != SQLITE_ROW) {
 			break;
 		}
-		rc = encode_row(stmt, buffer, n);
+		rc = encodeRow(stmt, buffer, n);
 		if (rc != SQLITE_OK) {
 			break;
 		}

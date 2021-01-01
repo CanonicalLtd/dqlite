@@ -31,20 +31,20 @@ struct gateway
 	struct leader *leader;       /* Leader connection to the database */
 	struct handle *req;          /* Asynchronous request being handled */
 	sqlite3_stmt *stmt;          /* Statement being processed */
-	bool stmt_finalize;          /* Whether to finalize the statement */
+	bool stmtFinalize;           /* Whether to finalize the statement */
 	struct exec exec;            /* Low-level exec async request */
-	const char *sql;             /* SQL query for exec_sql requests */
-	struct stmt__registry stmts; /* Registry of prepared statements */
+	const char *sql;             /* SQL query for execSql requests */
+	struct stmtRegistry stmts;   /* Registry of prepared statements */
 	struct barrier barrier;      /* Barrier for query requests */
 	uint64_t protocol;           /* Protocol format version */
 };
 
-void gateway__init(struct gateway *g,
-		   struct config *config,
-		   struct registry *registry,
-		   struct raft *raft);
+void gatewayInit(struct gateway *g,
+		 struct config *config,
+		 struct registry *registry,
+		 struct raft *raft);
 
-void gateway__close(struct gateway *g);
+void gatewayClose(struct gateway *g);
 
 /**
  * Asynchronous request to handle a client command.
@@ -70,18 +70,18 @@ struct handle
  * @cursor parameter holds a cursor for reading the request payload, and the
  * @buffer parameter is a buffer for writing the response.
  */
-int gateway__handle(struct gateway *g,
-		    struct handle *req,
-		    int type,
-		    struct cursor *cursor,
-		    struct buffer *buffer,
-		    handle_cb cb);
+int gatewayHandle(struct gateway *g,
+		  struct handle *req,
+		  int type,
+		  struct cursor *cursor,
+		  struct buffer *buffer,
+		  handle_cb cb);
 
 /**
  * Resume execution of a query that was yielding a lot of rows and has been
  * interrupted in order to start sending a first batch of rows. The response
  * write buffer associated with the request must have been reset.
  */
-int gateway__resume(struct gateway *g, bool *finished);
+int gatewayResume(struct gateway *g, bool *finished);
 
 #endif /* DQLITE_GATEWAY_H_ */

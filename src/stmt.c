@@ -7,14 +7,14 @@
 
 /* The maximum number of columns we expect (for bindings or rows) is 255, which
  * can fit in one byte. */
-#define STMT__MAX_COLUMNS (1 << 8) - 1
+#define STMT_MAX_COLUMNS (1 << 8) - 1
 
-void stmt__init(struct stmt *s)
+void stmt_init(struct stmt *s)
 {
 	s->stmt = NULL;
 }
 
-void stmt__close(struct stmt *s)
+void stmt_close(struct stmt *s)
 {
 	if (s->stmt != NULL) {
 		/* Ignore the return code, since it will be non-zero in case the
@@ -23,10 +23,10 @@ void stmt__close(struct stmt *s)
 	}
 }
 
-const char *stmt__hash(struct stmt *stmt)
+const char *stmtHash(struct stmt *stmt)
 {
 	(void)stmt;
 	return NULL;
 }
 
-REGISTRY_METHODS(stmt__registry, stmt);
+REGISTRY_METHODS(stmtRegistry, stmt);

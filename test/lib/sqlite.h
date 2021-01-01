@@ -6,12 +6,12 @@
 #include "munit.h"
 
 /* Setup SQLite global state. */
-void test_sqlite_setup(const MunitParameter params[]);
+void testSqliteSetup(const MunitParameter params[]);
 
 /* Teardown SQLite global state. */
-void test_sqlite_tear_down(void);
+void testSqliteTearDown(void);
 
-#define SETUP_SQLITE test_sqlite_setup(params);
-#define TEAR_DOWN_SQLITE test_sqlite_tear_down();
+#define SETUP_SQLITE testSqliteSetup(params);
+#define TEAR_DOWN_SQLITE testSqliteTearDown();
 
 #endif /* TEST_SQLITE_H */

@@ -4,45 +4,43 @@
 #include "assert.h"
 
 /* True if a tuple decoder or decoder is using parameter format. */
-#define HAS_PARAMS_FORMAT(P) (P->format == TUPLE__PARAMS)
+#define HAS_PARAMS_FORMAT(P) (P->format == TUPLE_PARAMS)
 
 /* True if a tuple decoder or decoder is using row format. */
-#define HAS_ROW_FORMAT(P) (P->format == TUPLE__ROW)
+#define HAS_ROW_FORMAT(P) (P->format == TUPLE_ROW)
 
 /* Return the tuple header size in bytes, for a tuple of @n values.
  *
  * If the tuple is a row, then each slot is 4 bits, otherwise if the tuple is a
  * sequence of parameters each slot is 8 bits. */
-static size_t calc_header_size(unsigned n, int format)
+static size_t calcHeaderSize(unsigned n, int format)
 {
 	size_t size;
 
-	if (format == TUPLE__ROW) {
+	if (format == TUPLE_ROW) {
 		size = (n / 2) * sizeof(uint8_t);
 		if (n % 2 != 0) {
 			size += sizeof(uint8_t);
 		}
-		size = byte__pad64(size);
+		size = bytePad64(size);
 	} else {
-		assert(format == TUPLE__PARAMS);
-		 /* Include params count for the purpose of calculating possible
-		  * padding, but then exclude it as we have already read it. */
+		assert(format == TUPLE_PARAMS);
+		/* Include params count for the purpose of calculating possible
+		 * padding, but then exclude it as we have already read it. */
 		size = sizeof(uint8_t) + n * sizeof(uint8_t);
-		size = byte__pad64(size);
+		size = bytePad64(size);
 		size -= sizeof(uint8_t);
 	}
 
 	return size;
 }
 
-int tuple_decoder__init(struct tuple_decoder *d,
-			unsigned n,
-			struct cursor *cursor)
+int tupleDecoderInit(struct tupleDecoder *d, unsigned n, struct cursor *cursor)
 {
-	size_t header_size;
+	size_t headerSize;
 	int rc;
 
-	d->format = n == 0 ? TUPLE__PARAMS : TUPLE__ROW;
+	d->format = n == 0 ? TUPLE_PARAMS : TUPLE_ROW;
 
 	/* When using row format the number of values is the given one,
 	 * otherwise we have to read it from the header. */
@@ -50,7 +48,7 @@ int tuple_decoder__init(struct tuple_decoder *d,
 		d->n = n;
 	} else {
 		uint8_t byte;
-		rc = uint8__decode(cursor, &byte);
+		rc = uint8Decode(cursor, &byte);
 		if (rc != 0) {
 			return rc;
 		}
@@ -61,27 +59,27 @@ int tuple_decoder__init(struct tuple_decoder *d,
 	d->header = cursor->p;
 
 	/* Check that there is enough room to hold n type code slots. */
-	header_size = calc_header_size(d->n, d->format);
+	headerSize = calcHeaderSize(d->n, d->format);
 
-	if (header_size > cursor->cap) {
+	if (headerSize > cursor->cap) {
 		return DQLITE_PARSE;
 	}
 
 	d->cursor = cursor;
-	d->cursor->p += header_size;
-	d->cursor->cap -= header_size;
+	d->cursor->p += headerSize;
+	d->cursor->cap -= headerSize;
 
 	return 0;
 }
 
 /* Return the number of values in the decoder's tuple. */
-unsigned tuple_decoder__n(struct tuple_decoder *d)
+unsigned tupleDecoderN(struct tupleDecoder *d)
 {
 	return d->n;
 }
 
 /* Return the type of the i'th value of the tuple. */
-static int get_type(struct tuple_decoder *d, unsigned i)
+static int getType(struct tupleDecoder *d, unsigned i)
 {
 	int type;
 
@@ -101,33 +99,33 @@ static int get_type(struct tuple_decoder *d, unsigned i)
 	return type;
 }
 
-int tuple_decoder__next(struct tuple_decoder *d, struct value *value)
+int tupleDecoderNext(struct tupleDecoder *d, struct value *value)
 {
 	int rc;
 	assert(d->i < d->n);
-	value->type = get_type(d, d->i);
+	value->type = getType(d, d->i);
 	switch (value->type) {
 		case SQLITE_INTEGER:
-			rc = int64__decode(d->cursor, &value->integer);
+			rc = int64Decode(d->cursor, &value->integer);
 			break;
 		case SQLITE_FLOAT:
-			rc = float__decode(d->cursor, &value->float_);
+			rc = floatDecode(d->cursor, &value->float_);
 			break;
 		case SQLITE_BLOB:
-			rc = blob__decode(d->cursor, &value->blob);
+			rc = blobDecode(d->cursor, &value->blob);
 			break;
 		case SQLITE_NULL:
 			/* TODO: allow null to be encoded with 0 bytes? */
-			rc = uint64__decode(d->cursor, &value->null);
+			rc = uint64Decode(d->cursor, &value->null);
 			break;
 		case SQLITE_TEXT:
-			rc = text__decode(d->cursor, &value->text);
+			rc = textDecode(d->cursor, &value->text);
 			break;
 		case DQLITE_ISO8601:
-			rc = text__decode(d->cursor, &value->iso8601);
+			rc = textDecode(d->cursor, &value->iso8601);
 			break;
 		case DQLITE_BOOLEAN:
-			rc = uint64__decode(d->cursor, &value->boolean);
+			rc = uint64Decode(d->cursor, &value->boolean);
 			break;
 		default:
 			rc = DQLITE_PARSE;
@@ -141,18 +139,18 @@ int tuple_decoder__next(struct tuple_decoder *d, struct value *value)
 }
 
 /* Return a pointer to the tuple header. */
-static uint8_t *encoder__header(struct tuple_encoder *e)
+static uint8_t *encoderHeader(struct tupleEncoder *e)
 {
-	return buffer__cursor(e->buffer, e->header);
+	return bufferCursor(e->buffer, e->header);
 }
 
-int tuple_encoder__init(struct tuple_encoder *e,
-			unsigned n,
-			int format,
-			struct buffer *buffer)
+int tupleEncoderInit(struct tupleEncoder *e,
+		     unsigned n,
+		     int format,
+		     struct buffer *buffer)
 {
 	void *cursor;
-	size_t n_header;
+	size_t nHeader;
 
 	e->n = n;
 	e->format = format;
@@ -162,21 +160,21 @@ int tuple_encoder__init(struct tuple_encoder *e,
 	/* With params format we need to fill the first byte of the header with
 	 * the params count. */
 	if (HAS_PARAMS_FORMAT(e)) {
-		uint8_t *header = buffer__advance(buffer, 1);
+		uint8_t *header = bufferAdvance(buffer, 1);
 		if (header == NULL) {
 			return DQLITE_NOMEM;
 		}
 		header[0] = (uint8_t)n;
 	}
 
-	e->header = buffer__offset(buffer);
+	e->header = bufferOffset(buffer);
 
 	/* Reset the header */
-	n_header = calc_header_size(n, format);
-	memset(encoder__header(e), 0, n_header);
+	nHeader = calcHeaderSize(n, format);
+	memset(encoderHeader(e), 0, nHeader);
 
 	/* Advance the buffer write pointer past the tuple header. */
-	cursor = buffer__advance(buffer, n_header);
+	cursor = bufferAdvance(buffer, nHeader);
 	if (cursor == NULL) {
 		return DQLITE_NOMEM;
 	}
@@ -185,9 +183,9 @@ int tuple_encoder__init(struct tuple_encoder *e,
 }
 
 /* Set the type of the i'th value of the tuple. */
-static void set_type(struct tuple_encoder *e, unsigned i, int type)
+static void setType(struct tupleEncoder *e, unsigned i, int type)
 {
-	uint8_t *header = encoder__header(e);
+	uint8_t *header = encoderHeader(e);
 
 	/* In row format the type slot size is 4 bits, while in params format
 	 * the slot is 8 bits. */
@@ -204,76 +202,76 @@ static void set_type(struct tuple_encoder *e, unsigned i, int type)
 	}
 }
 
-int tuple_encoder__next(struct tuple_encoder *e, struct value *value)
+int tupleEncoderNext(struct tupleEncoder *e, struct value *value)
 {
 	void *cursor;
 	size_t size;
 
 	assert(e->i < e->n);
 
-	set_type(e, e->i, value->type);
+	setType(e, e->i, value->type);
 
 	switch (value->type) {
 		case SQLITE_INTEGER:
-			size = int64__sizeof(&value->integer);
+			size = int64Sizeof(&value->integer);
 			break;
 		case SQLITE_FLOAT:
-			size = float__sizeof(&value->float_);
+			size = floatSizeof(&value->float_);
 			break;
 		case SQLITE_BLOB:
-			size = blob__sizeof(&value->blob);
+			size = blobSizeof(&value->blob);
 			break;
 		case SQLITE_NULL:
 			/* TODO: allow null to be encoded with 0 bytes */
-			size = uint64__sizeof(&value->null);
+			size = uint64Sizeof(&value->null);
 			break;
 		case SQLITE_TEXT:
-			size = text__sizeof(&value->text);
+			size = textSizeof(&value->text);
 			break;
 		case DQLITE_UNIXTIME:
-			size = int64__sizeof(&value->unixtime);
+			size = int64Sizeof(&value->unixtime);
 			break;
 		case DQLITE_ISO8601:
-			size = text__sizeof(&value->iso8601);
+			size = textSizeof(&value->iso8601);
 			break;
 		case DQLITE_BOOLEAN:
-			size = uint64__sizeof(&value->boolean);
+			size = uint64Sizeof(&value->boolean);
 			break;
 		default:
 			assert(0);
 	};
 
 	/* Advance the buffer write pointer. */
-	cursor = buffer__advance(e->buffer, size);
+	cursor = bufferAdvance(e->buffer, size);
 	if (cursor == NULL) {
 		return DQLITE_NOMEM;
 	}
 
 	switch (value->type) {
 		case SQLITE_INTEGER:
-			int64__encode(&value->integer, &cursor);
+			int64Encode(&value->integer, &cursor);
 			break;
 		case SQLITE_FLOAT:
-			float__encode(&value->float_, &cursor);
+			floatEncode(&value->float_, &cursor);
 			break;
 		case SQLITE_BLOB:
-			blob__encode(&value->blob, &cursor);
+			blobEncode(&value->blob, &cursor);
 			break;
 		case SQLITE_NULL:
 			/* TODO: allow null to be encoded with 0 bytes */
-			uint64__encode(&value->null, &cursor);
+			uint64Encode(&value->null, &cursor);
 			break;
 		case SQLITE_TEXT:
-			text__encode(&value->text, &cursor);
+			textEncode(&value->text, &cursor);
 			break;
 		case DQLITE_UNIXTIME:
-			int64__encode(&value->unixtime, &cursor);
+			int64Encode(&value->unixtime, &cursor);
 			break;
 		case DQLITE_ISO8601:
-			text__encode(&value->iso8601, &cursor);
+			textEncode(&value->iso8601, &cursor);
 			break;
 		case DQLITE_BOOLEAN:
-			uint64__encode(&value->boolean, &cursor);
+			uint64Encode(&value->boolean, &cursor);
 			break;
 	};
 

@@ -1,14 +1,14 @@
 #include "fault.h"
 #include "munit.h"
 
-void test_fault_init(struct test_fault *f)
+void testFaultInit(struct testFault *f)
 {
     f->countdown = -1;
     f->n = -1;
     f->enabled = false;
 }
 
-bool test_fault_tick(struct test_fault *f)
+bool testFaultTick(struct testFault *f)
 {
     if (MUNIT_UNLIKELY(!f->enabled)) {
         return false;
@@ -51,13 +51,13 @@ bool test_fault_tick(struct test_fault *f)
     return false;
 }
 
-void test_fault_config(struct test_fault *f, int delay, int repeat)
+void testFaultConfig(struct testFault *f, int delay, int repeat)
 {
     f->countdown = delay;
     f->n = repeat;
 }
 
-void test_fault_enable(struct test_fault *f)
+void testFaultEnable(struct testFault *f)
 {
     f->enabled = true;
 }

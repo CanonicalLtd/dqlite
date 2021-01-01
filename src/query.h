@@ -15,6 +15,6 @@
  * tuples, either until #SQLITE_DONE is returned or a full page of the given
  * buffer is filled.
  */
-int query__batch(sqlite3_stmt *stmt, struct buffer *buffer);
+int queryBatch(sqlite3_stmt *stmt, struct buffer *buffer);
 
 #endif /* QUERY_H_*/

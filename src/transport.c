@@ -22,7 +22,7 @@ struct impl
 	} connect;
 	raft_id id;
 	const char *address;
-	raft_uv_accept_cb accept_cb;
+	raft_uv_accept_cb acceptCb;
 };
 
 struct connect
@@ -36,9 +36,9 @@ struct connect
 	int status;
 };
 
-static int impl_init(struct raft_uv_transport *transport,
-		     raft_id id,
-		     const char *address)
+static int implInit(struct raft_uv_transport *transport,
+		    raft_id id,
+		    const char *address)
 {
 	struct impl *i = transport->impl;
 	i->id = id;
@@ -46,20 +46,19 @@ static int impl_init(struct raft_uv_transport *transport,
 	return 0;
 }
 
-static int impl_listen(struct raft_uv_transport *transport,
-		       raft_uv_accept_cb cb)
+static int implListen(struct raft_uv_transport *transport, raft_uv_accept_cb cb)
 {
 	struct impl *i = transport->impl;
-	i->accept_cb = cb;
+	i->acceptCb = cb;
 	return 0;
 }
 
-static void connect_work_cb(uv_work_t *work)
+static void connectWorkCb(uv_work_t *work)
 {
 	struct connect *r = work->data;
 	struct impl *i = r->impl;
 	struct message message;
-	struct request_connect request;
+	struct requestConnect request;
 	uint64_t protocol;
 	void *buf;
 	void *cursor;
@@ -77,11 +76,11 @@ static void connect_work_cb(uv_work_t *work)
 	}
 
 	/* Send the initial dqlite protocol handshake. */
-	protocol = byte__flip64(DQLITE_PROTOCOL_VERSION);
+	protocol = byteFlip64(DQLITE_PROTOCOL_VERSION);
 	rv = (int)write(r->fd, &protocol, sizeof protocol);
 	if (rv != sizeof protocol) {
 		rv = RAFT_NOCONNECTION;
-		goto err_after_connect;
+		goto errAfterConnect;
 	}
 
 	/* Send a CONNECT dqlite protocol command, which will transfer control
@@ -89,8 +88,8 @@ static void connect_work_cb(uv_work_t *work)
 	request.id = i->id;
 	request.address = i->address;
 
-	n1 = message__sizeof(&message);
-	n2 = request_connect__sizeof(&request);
+	n1 = messageSizeof(&message);
+	n2 = requestConnectSizeof(&request);
 
 	message.type = DQLITE_REQUEST_CONNECT;
 	message.words = (uint32_t)(n2 / 8);
@@ -100,32 +99,32 @@ static void connect_work_cb(uv_work_t *work)
 	buf = sqlite3_malloc64(n);
 	if (buf == NULL) {
 		rv = RAFT_NOCONNECTION;
-		goto err_after_connect;
+		goto errAfterConnect;
 	}
 
 	cursor = buf;
-	message__encode(&message, &cursor);
-	request_connect__encode(&request, &cursor);
+	messageEncode(&message, &cursor);
+	requestConnectEncode(&request, &cursor);
 
 	rv = (int)write(r->fd, buf, n);
 	sqlite3_free(buf);
 
 	if (rv != (int)n) {
 		rv = RAFT_NOCONNECTION;
-		goto err_after_connect;
+		goto errAfterConnect;
 	}
 
 	r->status = 0;
 	return;
 
-err_after_connect:
+errAfterConnect:
 	close(r->fd);
 err:
 	r->status = rv;
 	return;
 }
 
-static void connect_after_work_cb(uv_work_t *work, int status)
+static void connectAfterWorkCb(uv_work_t *work, int status)
 {
 	struct connect *r = work->data;
 	struct impl *i = r->impl;
@@ -138,7 +137,7 @@ static void connect_after_work_cb(uv_work_t *work, int status)
 		goto out;
 	}
 
-	rv = transport__stream(i->loop, r->fd, &stream);
+	rv = transportStream(i->loop, r->fd, &stream);
 	if (rv != 0) {
 		r->status = RAFT_NOCONNECTION;
 		close(r->fd);
@@ -149,11 +148,11 @@ out:
 	sqlite3_free(r);
 }
 
-static int impl_connect(struct raft_uv_transport *transport,
-			struct raft_uv_connect *req,
-			raft_id id,
-			const char *address,
-			raft_uv_connect_cb cb)
+static int implConnect(struct raft_uv_transport *transport,
+		       struct raft_uv_connect *req,
+		       raft_id id,
+		       const char *address,
+		       raft_uv_connect_cb cb)
 {
 	struct impl *i = transport->impl;
 	struct connect *r;
@@ -173,28 +172,28 @@ static int impl_connect(struct raft_uv_transport *transport,
 
 	req->cb = cb;
 
-	rv = uv_queue_work(i->loop, &r->work, connect_work_cb,
-			   connect_after_work_cb);
+	rv =
+	    uv_queue_work(i->loop, &r->work, connectWorkCb, connectAfterWorkCb);
 	if (rv != 0) {
 		rv = RAFT_NOCONNECTION;
-		goto err_after_connect_alloc;
+		goto errAfterConnectAlloc;
 	}
 
 	return 0;
 
-err_after_connect_alloc:
+errAfterConnectAlloc:
 	sqlite3_free(r);
 err:
 	return rv;
 }
 
-static void impl_close(struct raft_uv_transport *transport,
-		       raft_uv_transport_close_cb cb)
+static void implClose(struct raft_uv_transport *transport,
+		      raft_uv_transport_close_cb cb)
 {
 	cb(transport);
 }
 
-static int parse_address(const char *address, struct sockaddr_in *addr)
+static int parseAddress(const char *address, struct sockaddr_in *addr)
 {
 	char buf[256];
 	char *host;
@@ -218,13 +217,13 @@ static int parse_address(const char *address, struct sockaddr_in *addr)
 	return 0;
 }
 
-static int default_connect(void *arg, const char *address, int *fd)
+static int defaultConnect(void *arg, const char *address, int *fd)
 {
 	struct sockaddr_in addr;
 	int rv;
 	(void)arg;
 
-	rv = parse_address(address, &addr);
+	rv = parseAddress(address, &addr);
 	if (rv != 0) {
 		return RAFT_NOCONNECTION;
 	}
@@ -250,14 +249,14 @@ int raftProxyInit(struct raft_uv_transport *transport, struct uv_loop_s *loop)
 		return DQLITE_NOMEM;
 	}
 	i->loop = loop;
-	i->connect.f = default_connect;
+	i->connect.f = defaultConnect;
 	i->connect.arg = NULL;
-	i->accept_cb = NULL;
+	i->acceptCb = NULL;
 	transport->impl = i;
-	transport->init = impl_init;
-	transport->listen = impl_listen;
-	transport->connect = impl_connect;
-	transport->close = impl_close;
+	transport->init = implInit;
+	transport->listen = implListen;
+	transport->connect = implConnect;
+	transport->close = implClose;
 	return 0;
 }
 
@@ -274,10 +273,10 @@ void raftProxyAccept(struct raft_uv_transport *transport,
 {
 	struct impl *i = transport->impl;
 	/* If the accept callback is NULL it means we were stopped. */
-	if (i->accept_cb == NULL) {
+	if (i->acceptCb == NULL) {
 		uv_close((struct uv_handle_s *)stream, (uv_close_cb)raft_free);
 	} else {
-		i->accept_cb(transport, id, address, stream);
+		i->acceptCb(transport, id, address, stream);
 	}
 }
 

@@ -16,27 +16,27 @@ int clientInit(struct client *c, int fd)
 	int rv;
 	c->fd = fd;
 
-	rv = buffer__init(&c->read);
+	rv = bufferInit(&c->read);
 	if (rv != 0) {
 		goto err;
 	}
-	rv = buffer__init(&c->write);
+	rv = bufferInit(&c->write);
 	if (rv != 0) {
-		goto err_after_read_buffer_init;
+		goto errAfterReadBufferInit;
 	}
 
 	return 0;
 
-err_after_read_buffer_init:
-	buffer__close(&c->read);
+errAfterReadBufferInit:
+	bufferClose(&c->read);
 err:
 	return rv;
 }
 
 void clientClose(struct client *c)
 {
-	buffer__close(&c->write);
-	buffer__close(&c->read);
+	bufferClose(&c->write);
+	bufferClose(&c->read);
 }
 
 int clientSendHandshake(struct client *c)
@@ -45,7 +45,7 @@ int clientSendHandshake(struct client *c)
 	ssize_t rv;
 
 	/* TODO: update to version 1 */
-	protocol = byte__flip64(DQLITE_PROTOCOL_VERSION_LEGACY);
+	protocol = byteFlip64(DQLITE_PROTOCOL_VERSION_LEGACY);
 
 	rv = write(c->fd, &protocol, sizeof protocol);
 	if (rv < 0) {
@@ -56,31 +56,31 @@ int clientSendHandshake(struct client *c)
 }
 
 /* Write out a request. */
-#define REQUEST(LOWER, UPPER)                                       \
-	{                                                           \
-		struct message message;                             \
-		size_t n;                                           \
-		size_t n1;                                          \
-		size_t n2;                                          \
-		void *cursor;                                       \
-		ssize_t rv;                                         \
-		n1 = message__sizeof(&message);                     \
-		n2 = request_##LOWER##__sizeof(&request);           \
-		n = n1 + n2;                                        \
-		buffer__reset(&c->write);                           \
-		cursor = buffer__advance(&c->write, n);             \
-		if (cursor == NULL) {                               \
-			return DQLITE_NOMEM;                        \
-		}                                                   \
-		assert(n2 % 8 == 0);                                \
-		message.type = DQLITE_REQUEST_##UPPER;              \
-		message.words = (uint32_t)(n2 / 8);                 \
-		message__encode(&message, &cursor);                 \
-		request_##LOWER##__encode(&request, &cursor);       \
-		rv = write(c->fd, buffer__cursor(&c->write, 0), n); \
-		if (rv != (int)n) {                                 \
-			return DQLITE_ERROR;                        \
-		}                                                   \
+#define REQUEST(LOWER, UPPER)                                     \
+	{                                                         \
+		struct message message;                           \
+		size_t n;                                         \
+		size_t n1;                                        \
+		size_t n2;                                        \
+		void *cursor;                                     \
+		ssize_t rv;                                       \
+		n1 = messageSizeof(&message);                     \
+		n2 = request##LOWER##Sizeof(&request);            \
+		n = n1 + n2;                                      \
+		bufferReset(&c->write);                           \
+		cursor = bufferAdvance(&c->write, n);             \
+		if (cursor == NULL) {                             \
+			return DQLITE_NOMEM;                      \
+		}                                                 \
+		assert(n2 % 8 == 0);                              \
+		message.type = DQLITE_REQUEST_##UPPER;            \
+		message.words = (uint32_t)(n2 / 8);               \
+		messageEncode(&message, &cursor);                 \
+		request##LOWER##Encode(&request, &cursor);        \
+		rv = write(c->fd, bufferCursor(&c->write, 0), n); \
+		if (rv != (int)n) {                               \
+			return DQLITE_ERROR;                      \
+		}                                                 \
 	}
 
 /* Read a response without decoding it. */
@@ -91,9 +91,9 @@ int clientSendHandshake(struct client *c)
 		size_t _n;                                      \
 		void *_p;                                       \
 		ssize_t _rv;                                    \
-		_n = message__sizeof(&_message);                \
-		buffer__reset(&c->read);                        \
-		_p = buffer__advance(&c->read, _n);             \
+		_n = messageSizeof(&_message);                  \
+		bufferReset(&c->read);                          \
+		_p = bufferAdvance(&c->read, _n);               \
 		assert(_p != NULL);                             \
 		_rv = read(c->fd, _p, _n);                      \
 		if (_rv != (int)_n) {                           \
@@ -101,14 +101,14 @@ int clientSendHandshake(struct client *c)
 		}                                               \
 		_cursor.p = _p;                                 \
 		_cursor.cap = _n;                               \
-		_rv = message__decode(&_cursor, &_message);     \
+		_rv = messageDecode(&_cursor, &_message);       \
 		assert(_rv == 0);                               \
 		if (_message.type != DQLITE_RESPONSE_##UPPER) { \
 			return DQLITE_ERROR;                    \
 		}                                               \
-		buffer__reset(&c->read);                        \
+		bufferReset(&c->read);                          \
 		_n = _message.words * 8;                        \
-		_p = buffer__advance(&c->read, _n);             \
+		_p = bufferAdvance(&c->read, _n);               \
 		if (_p == NULL) {                               \
 			return DQLITE_ERROR;                    \
 		}                                               \
@@ -119,16 +119,16 @@ int clientSendHandshake(struct client *c)
 	}
 
 /* Decode a response. */
-#define DECODE(LOWER)                                                \
-	{                                                            \
-		int rv;                                              \
-		struct cursor cursor;                                \
-		cursor.p = buffer__cursor(&c->read, 0);              \
-		cursor.cap = buffer__offset(&c->read);               \
-		rv = response_##LOWER##__decode(&cursor, &response); \
-		if (rv != 0) {                                       \
-			return DQLITE_ERROR;                         \
-		}                                                    \
+#define DECODE(LOWER)                                             \
+	{                                                         \
+		int rv;                                           \
+		struct cursor cursor;                             \
+		cursor.p = bufferCursor(&c->read, 0);             \
+		cursor.cap = bufferOffset(&c->read);              \
+		rv = response##LOWER##Decode(&cursor, &response); \
+		if (rv != 0) {                                    \
+			return DQLITE_ERROR;                      \
+		}                                                 \
 	}
 
 /* Read and decode a response. */
@@ -138,7 +138,7 @@ int clientSendHandshake(struct client *c)
 
 int clientSendOpen(struct client *c, const char *name)
 {
-	struct request_open request;
+	struct requestopen request;
 	request.filename = name;
 	request.flags = 0;    /* TODO: this is unused, should we drop it? */
 	request.vfs = "test"; /* TODO: this is unused, should we drop it? */
@@ -148,63 +148,63 @@ int clientSendOpen(struct client *c, const char *name)
 
 int clientRecvDb(struct client *c)
 {
-	struct response_db response;
+	struct responsedb response;
 	RESPONSE(db, DB);
-	c->db_id = response.id;
+	c->dbId = response.id;
 	return 0;
 }
 
 int clientSendPrepare(struct client *c, const char *sql)
 {
-	struct request_prepare request;
-	request.db_id = c->db_id;
+	struct requestprepare request;
+	request.dbId = c->dbId;
 	request.sql = sql;
 	REQUEST(prepare, PREPARE);
 	return 0;
 }
 
-int clientRecvStmt(struct client *c, unsigned *stmt_id)
+int clientRecvStmt(struct client *c, unsigned *stmtId)
 {
-	struct response_stmt response;
+	struct responsestmt response;
 	RESPONSE(stmt, STMT);
-	*stmt_id = response.id;
+	*stmtId = response.id;
 	return 0;
 }
 
-int clientSendExec(struct client *c, unsigned stmt_id)
+int clientSendExec(struct client *c, unsigned stmtId)
 {
-	struct request_exec request;
-	request.db_id = c->db_id;
-	request.stmt_id = stmt_id;
+	struct requestexec request;
+	request.dbId = c->dbId;
+	request.stmtId = stmtId;
 	REQUEST(exec, EXEC);
 	return 0;
 }
 
 int clientSendExecSQL(struct client *c, const char *sql)
 {
-	struct request_exec_sql request;
-	request.db_id = c->db_id;
+	struct requestexecSql request;
+	request.dbId = c->dbId;
 	request.sql = sql;
-	REQUEST(exec_sql, EXEC_SQL);
+	REQUEST(execSql, EXEC_SQL);
 	return 0;
 }
 
 int clientRecvResult(struct client *c,
-		     unsigned *last_insert_id,
-		     unsigned *rows_affected)
+		     unsigned *lastInsertId,
+		     unsigned *rowsAffected)
 {
-	struct response_result response;
+	struct responseresult response;
 	RESPONSE(result, RESULT);
-	*last_insert_id = (unsigned)response.last_insert_id;
-	*rows_affected = (unsigned)response.rows_affected;
+	*lastInsertId = (unsigned)response.lastInsertId;
+	*rowsAffected = (unsigned)response.rowsAffected;
 	return 0;
 }
 
-int clientSendQuery(struct client *c, unsigned stmt_id)
+int clientSendQuery(struct client *c, unsigned stmtId)
 {
-	struct request_query request;
-	request.db_id = c->db_id;
-	request.stmt_id = stmt_id;
+	struct requestquery request;
+	request.dbId = c->dbId;
+	request.stmtId = stmtId;
 	REQUEST(query, QUERY);
 	return 0;
 }
@@ -212,26 +212,26 @@ int clientSendQuery(struct client *c, unsigned stmt_id)
 int clientRecvRows(struct client *c, struct rows *rows)
 {
 	struct cursor cursor;
-	struct tuple_decoder decoder;
-	uint64_t column_count;
+	struct tupleDecoder decoder;
+	uint64_t columnCount;
 	struct row *last;
 	unsigned i;
 	int rv;
 	READ(rows, ROWS);
-	cursor.p = buffer__cursor(&c->read, 0);
-	cursor.cap = buffer__offset(&c->read);
-	rv = uint64__decode(&cursor, &column_count);
+	cursor.p = bufferCursor(&c->read, 0);
+	cursor.cap = bufferOffset(&c->read);
+	rv = uint64Decode(&cursor, &columnCount);
 	if (rv != 0) {
 		return DQLITE_ERROR;
 	}
-	rows->column_count = (unsigned)column_count;
-	for (i = 0; i < rows->column_count; i++) {
-		rows->column_names = sqlite3_malloc(
-		    (int)(column_count * sizeof *rows->column_names));
-		if (rows->column_names == NULL) {
+	rows->columnCount = (unsigned)columnCount;
+	for (i = 0; i < rows->columnCount; i++) {
+		rows->columnNames = sqlite3_malloc(
+		    (int)(columnCount * sizeof *rows->columnNames));
+		if (rows->columnNames == NULL) {
 			return DQLITE_ERROR;
 		}
-		rv = text__decode(&cursor, &rows->column_names[i]);
+		rv = textDecode(&cursor, &rows->columnNames[i]);
 		if (rv != 0) {
 			return DQLITE_ERROR;
 		}
@@ -244,7 +244,7 @@ int clientRecvRows(struct client *c, struct rows *rows)
 			/* No EOF marker fond */
 			return DQLITE_ERROR;
 		}
-		eof = byte__flip64(*(uint64_t *)cursor.p);
+		eof = byteFlip64(*(uint64_t *)cursor.p);
 		if (eof == DQLITE_RESPONSE_ROWS_DONE ||
 		    eof == DQLITE_RESPONSE_ROWS_PART) {
 			break;
@@ -254,18 +254,17 @@ int clientRecvRows(struct client *c, struct rows *rows)
 			return DQLITE_NOMEM;
 		}
 		row->values =
-		    sqlite3_malloc((int)(column_count * sizeof *row->values));
+		    sqlite3_malloc((int)(columnCount * sizeof *row->values));
 		if (row->values == NULL) {
 			return DQLITE_NOMEM;
 		}
 		row->next = NULL;
-		rv = tuple_decoder__init(&decoder, (unsigned)column_count,
-					 &cursor);
+		rv = tupleDecoderInit(&decoder, (unsigned)columnCount, &cursor);
 		if (rv != 0) {
 			return DQLITE_ERROR;
 		}
-		for (i = 0; i < rows->column_count; i++) {
-			rv = tuple_decoder__next(&decoder, &row->values[i]);
+		for (i = 0; i < rows->columnCount; i++) {
+			rv = tupleDecoderNext(&decoder, &row->values[i]);
 			if (rv != 0) {
 				return DQLITE_ERROR;
 			}
@@ -290,12 +289,12 @@ void clientCloseRows(struct rows *rows)
 		sqlite3_free(row);
 		row = next;
 	}
-	sqlite3_free(rows->column_names);
+	sqlite3_free(rows->columnNames);
 }
 
 int clientSendAdd(struct client *c, unsigned id, const char *address)
 {
-	struct request_add request;
+	struct requestadd request;
 	request.id = id;
 	request.address = address;
 	REQUEST(add, ADD);
@@ -304,7 +303,7 @@ int clientSendAdd(struct client *c, unsigned id, const char *address)
 
 int clientSendAssign(struct client *c, unsigned id, int role)
 {
-	struct request_assign request;
+	struct requestassign request;
 	(void)role;
 	/* TODO: actually send an assign request, not a legacy promote one. */
 	request.id = id;
@@ -314,7 +313,7 @@ int clientSendAssign(struct client *c, unsigned id, int role)
 
 int clientSendRemove(struct client *c, unsigned id)
 {
-	struct request_remove request;
+	struct requestremove request;
 	request.id = id;
 	REQUEST(remove, REMOVE);
 	return 0;
@@ -322,7 +321,7 @@ int clientSendRemove(struct client *c, unsigned id)
 
 int clientRecvEmpty(struct client *c)
 {
-	struct response_empty response;
+	struct responseempty response;
 	RESPONSE(empty, EMPTY);
 	return 0;
 }

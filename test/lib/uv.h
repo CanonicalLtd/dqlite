@@ -15,7 +15,7 @@
 /**
  * Initialize the given libuv loop.
  */
-void test_uv_setup(const MunitParameter params[], struct uv_loop_s *l);
+void testUvSetup(const MunitParameter params[], struct uv_loop_s *l);
 
 /**
  * Run the loop until there are no pending active handles.
@@ -25,12 +25,12 @@ void test_uv_setup(const MunitParameter params[], struct uv_loop_s *l);
  *
  * This is meant to be used in tear down functions.
  */
-void test_uv_stop(struct uv_loop_s *l);
+void testUvStop(struct uv_loop_s *l);
 
 /**
  * Tear down the loop making sure no active handles are left.
  */
-void test_uv_tear_down(struct uv_loop_s *l);
+void testUvTearDown(struct uv_loop_s *l);
 
 /**
  * Run the loop until there are no pending active handles or the given amount of
@@ -38,7 +38,7 @@ void test_uv_tear_down(struct uv_loop_s *l);
  *
  * Return non-zero if there are pending handles.
  */
-int test_uv_run(struct uv_loop_s *l, unsigned n);
+int testUvRun(struct uv_loop_s *l, unsigned n);
 
 /**
  * Run the loop until the given function returns true.
@@ -46,7 +46,7 @@ int test_uv_run(struct uv_loop_s *l, unsigned n);
  * If the loop exhausts all active handles or if #TEST_UV_MAX_LOOP_RUN is
  * reached without @f returning #true, the test fails.
  */
-#define test_uv_run_until(DATA, FUNC)                                        \
+#define testUvRunUntil(DATA, FUNC)                                           \
 	{                                                                    \
 		unsigned i;                                                  \
 		int rv;                                                      \

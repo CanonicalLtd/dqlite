@@ -6,10 +6,10 @@
 #include "transport.h"
 
 /* Called to allocate a buffer for the next stream read. */
-static void alloc_cb(uv_handle_t *stream, size_t suggested_size, uv_buf_t *buf)
+static void allocCb(uv_handle_t *stream, size_t suggestedSize, uv_buf_t *buf)
 {
 	struct transport *t;
-	(void)suggested_size;
+	(void)suggestedSize;
 	t = stream->data;
 	assert(t->read.base != NULL);
 	assert(t->read.len > 0);
@@ -17,21 +17,21 @@ static void alloc_cb(uv_handle_t *stream, size_t suggested_size, uv_buf_t *buf)
 }
 
 /* Invoke the read callback. */
-static void read_done(struct transport *t, ssize_t status)
+static void readDone(struct transport *t, ssize_t status)
 {
-	transport_read_cb cb;
+	transportReadCb cb;
 	int rv;
 	rv = uv_read_stop(t->stream);
 	assert(rv == 0);
-	cb = t->read_cb;
+	cb = t->readCb;
 	assert(cb != NULL);
-	t->read_cb = NULL;
+	t->readCb = NULL;
 	t->read.base = NULL;
 	t->read.len = 0;
 	cb(t, (int)status);
 }
 
-static void read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
+static void readCb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 {
 	struct transport *t;
 	(void)buf;
@@ -55,7 +55,7 @@ static void read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 		}
 
 		/* Read completed, invoke the callback. */
-		read_done(t, 0);
+		readDone(t, 0);
 		return;
 	}
 
@@ -69,12 +69,10 @@ static void read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 	assert(nread < 0);
 
 	/* Failure. */
-	read_done(t, nread);
+	readDone(t, nread);
 }
 
-int transport__stream(struct uv_loop_s *loop,
-		      int fd,
-		      struct uv_stream_s **stream)
+int transportStream(struct uv_loop_s *loop, int fd, struct uv_stream_s **stream)
 {
 	struct uv_pipe_s *pipe;
 	struct uv_tcp_s *tcp;
@@ -91,7 +89,7 @@ int transport__stream(struct uv_loop_s *loop,
 			rv = uv_tcp_open(tcp, fd);
 			if (rv != 0) {
 				raft_free(tcp);
-				return TRANSPORT__BADSOCKET;
+				return TRANSPORT_BADSOCKET;
 			}
 			*stream = (struct uv_stream_s *)tcp;
 			break;
@@ -105,79 +103,79 @@ int transport__stream(struct uv_loop_s *loop,
 			rv = uv_pipe_open(pipe, fd);
 			if (rv != 0) {
 				raft_free(pipe);
-				return TRANSPORT__BADSOCKET;
+				return TRANSPORT_BADSOCKET;
 			}
 			*stream = (struct uv_stream_s *)pipe;
 			break;
 		default:
-			return TRANSPORT__BADSOCKET;
+			return TRANSPORT_BADSOCKET;
 	};
 
 	return 0;
 }
 
-int transport__init(struct transport *t, struct uv_stream_s *stream)
+int transportInit(struct transport *t, struct uv_stream_s *stream)
 {
 	t->stream = stream;
 	t->stream->data = t;
 	t->read.base = NULL;
 	t->read.len = 0;
 	t->write.data = t;
-	t->read_cb = NULL;
-	t->write_cb = NULL;
-	t->close_cb = NULL;
+	t->readCb = NULL;
+	t->writeCb = NULL;
+	t->closeCb = NULL;
 
 	return 0;
 }
 
-static void close_cb(uv_handle_t *handle)
+static void closeCb(uv_handle_t *handle)
 {
 	struct transport *t = handle->data;
 	raft_free(t->stream);
-	if (t->close_cb != NULL) {
-		t->close_cb(t);
+	if (t->closeCb != NULL) {
+		t->closeCb(t);
 	}
 }
 
-void transport__close(struct transport *t, transport_close_cb cb)
+void transportClose(struct transport *t, transportCloseCb cb)
 {
-	assert(t->close_cb == NULL);
-	t->close_cb = cb;
-	uv_close((uv_handle_t *)t->stream, close_cb);
+	assert(t->closeCb == NULL);
+	t->closeCb = cb;
+	uv_close((uv_handle_t *)t->stream, closeCb);
 }
 
-int transport__read(struct transport *t, uv_buf_t *buf, transport_read_cb cb)
+int transportRead(struct transport *t, uv_buf_t *buf, transportReadCb cb)
 {
 	int rv;
 
 	assert(t->read.base == NULL);
 	assert(t->read.len == 0);
 	t->read = *buf;
-	t->read_cb = cb;
-	rv = uv_read_start(t->stream, alloc_cb, read_cb);
+	t->readCb = cb;
+	rv = uv_read_start(t->stream, allocCb, readCb);
 	if (rv != 0) {
 		return DQLITE_ERROR;
 	}
 	return 0;
 }
 
-static void write_cb(uv_write_t *req, int status)
+static void writeCb(uv_write_t *req, int status)
 {
 	struct transport *t = req->data;
-	transport_write_cb cb = t->write_cb;
+	transportWriteCb cb = t->writeCb;
 
 	assert(cb != NULL);
-	t->write_cb = NULL;
+	t->writeCb = NULL;
 
 	cb(t, status);
 }
 
-int transport__write(struct transport *t, uv_buf_t *buf, transport_write_cb cb)
+int transportWrite(struct transport *t, uv_buf_t *buf, transportWriteCb cb)
 {
 	int rv;
-	assert(t->write_cb == NULL);
-	t->write_cb = cb;
-	rv = uv_write(&t->write, t->stream, buf, 1, write_cb);
+	assert(t->writeCb == NULL);
+	t->writeCb = cb;
+	rv = uv_write(&t->write, t->stream, buf, 1, writeCb);
 	if (rv != 0) {
 		return rv;
 	}

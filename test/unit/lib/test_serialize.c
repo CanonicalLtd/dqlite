@@ -2,7 +2,7 @@
 
 #include "../../lib/runner.h"
 
-TEST_MODULE(lib_serialize);
+TEST_MODULE(libSerialize);
 
 /******************************************************************************
  *
@@ -14,8 +14,8 @@ TEST_MODULE(lib_serialize);
 	X(text, name, ##__VA_ARGS__) \
 	X(uint64, age, ##__VA_ARGS__)
 
-SERIALIZE__DEFINE(person, PERSON);
-SERIALIZE__IMPLEMENT(person, PERSON);
+SERIALIZE_DEFINE(person, PERSON);
+SERIALIZE_IMPLEMENT(person, PERSON);
 
 /******************************************************************************
  *
@@ -31,7 +31,7 @@ struct pages
 	void **bufs; /* Array of page buffers */
 };
 
-static void create_pages(unsigned n, unsigned size, struct pages *pages)
+static void createPages(unsigned n, unsigned size, struct pages *pages)
 {
 	unsigned i;
 	pages->n = n;
@@ -42,7 +42,7 @@ static void create_pages(unsigned n, unsigned size, struct pages *pages)
 	}
 }
 
-static void destroy_pages(struct pages *pages)
+static void destroyPages(struct pages *pages)
 {
 	unsigned i;
 	for (i = 0; i < pages->n; i++) {
@@ -55,31 +55,31 @@ static void destroy_pages(struct pages *pages)
 typedef struct pages pages_t;
 typedef struct person person_t;
 
-static size_t pages__sizeof(const pages_t *pages)
+static size_t pagesSizeof(const pages_t *pages)
 {
-	return uint16__sizeof(&pages->n) + uint16__sizeof(&pages->size) +
-	       uint32__sizeof(&pages->__unused__) +
+	return uint16Sizeof(&pages->n) + uint16Sizeof(&pages->size) +
+	       uint32Sizeof(&pages->__unused__) +
 	       pages->size * pages->n /* bufs */;
 }
 
-static void pages__encode(const pages_t *pages, void **cursor)
+static void pagesEncode(const pages_t *pages, void **cursor)
 {
 	unsigned i;
-	uint16__encode(&pages->n, cursor);
-	uint16__encode(&pages->size, cursor);
-	uint32__encode(&pages->__unused__, cursor);
+	uint16Encode(&pages->n, cursor);
+	uint16Encode(&pages->size, cursor);
+	uint32Encode(&pages->__unused__, cursor);
 	for (i = 0; i < pages->n; i++) {
 		memcpy(*cursor, pages->bufs[i], pages->size);
 		*cursor += pages->size;
 	}
 }
 
-static int pages__decode(struct cursor *cursor, pages_t *pages)
+static int pagesDecode(struct cursor *cursor, pages_t *pages)
 {
 	unsigned i;
-	uint16__decode(cursor, &pages->n);
-	uint16__decode(cursor, &pages->size);
-	uint32__decode(cursor, &pages->__unused__);
+	uint16Decode(cursor, &pages->n);
+	uint16Decode(cursor, &pages->size);
+	uint32Decode(cursor, &pages->__unused__);
 	pages->bufs = munit_malloc(pages->n * sizeof *pages->bufs);
 	for (i = 0; i < pages->n; i++) {
 		pages->bufs[i] = (void *)cursor->p;
@@ -94,8 +94,8 @@ static int pages__decode(struct cursor *cursor, pages_t *pages)
 	X(person, author, ##__VA_ARGS__) \
 	X(pages, pages, ##__VA_ARGS__)
 
-SERIALIZE__DEFINE(book, BOOK);
-SERIALIZE__IMPLEMENT(book, BOOK);
+SERIALIZE_DEFINE(book, BOOK);
+SERIALIZE_IMPLEMENT(book, BOOK);
 
 /******************************************************************************
  *
@@ -109,11 +109,11 @@ struct fixture
 	struct book book;
 };
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	(void)params;
-	(void)user_data;
+	(void)userData;
 	return f;
 }
 
@@ -160,20 +160,20 @@ TEST_CASE(sizeof, padding, NULL)
 	(void)params;
 	f->person.name = "John Doh";
 	f->person.age = 40;
-	size = person__sizeof(&f->person);
+	size = personSizeof(&f->person);
 	munit_assert_int(size, ==, 16 /* name */ + 8 /* age */);
 	return MUNIT_OK;
 }
 
 /* Padding is not added if a string ends exactly at word boundary. */
-TEST_CASE(sizeof, no_padding, NULL)
+TEST_CASE(sizeof, noPadding, NULL)
 {
 	struct fixture *f = data;
 	size_t size;
 	(void)params;
 	f->person.name = "Joe Doh";
 	f->person.age = 40;
-	size = person__sizeof(&f->person);
+	size = personSizeof(&f->person);
 	munit_assert_int(size, ==, 8 /* name */ + 8 /* age */);
 	return MUNIT_OK;
 }
@@ -198,18 +198,18 @@ TEST_CASE(encode, padding, NULL)
 	(void)params;
 	f->person.name = "John Doh";
 	f->person.age = 40;
-	size = person__sizeof(&f->person);
+	size = personSizeof(&f->person);
 	buf = munit_malloc(size);
 	cursor = buf;
-	person__encode(&f->person, &cursor);
+	personEncode(&f->person, &cursor);
 	munit_assert_string_equal(buf, "John Doh");
-	munit_assert_int(byte__flip64(*(uint64_t *)(buf + 16)), ==, 40);
+	munit_assert_int(byteFlip64(*(uint64_t *)(buf + 16)), ==, 40);
 	free(buf);
 	return MUNIT_OK;
 }
 
 /* Padding is not added if a string ends exactly at word boundary. */
-TEST_CASE(encode, no_padding, NULL)
+TEST_CASE(encode, noPadding, NULL)
 {
 	struct fixture *f = data;
 	size_t size;
@@ -218,12 +218,12 @@ TEST_CASE(encode, no_padding, NULL)
 	(void)params;
 	f->person.name = "Joe Doh";
 	f->person.age = 40;
-	size = person__sizeof(&f->person);
+	size = personSizeof(&f->person);
 	buf = munit_malloc(size);
 	cursor = buf;
-	person__encode(&f->person, &cursor);
+	personEncode(&f->person, &cursor);
 	munit_assert_string_equal(buf, "Joe Doh");
-	munit_assert_int(byte__flip64(*(uint64_t *)(buf + 8)), ==, 40);
+	munit_assert_int(byteFlip64(*(uint64_t *)(buf + 8)), ==, 40);
 	free(buf);
 	return MUNIT_OK;
 }
@@ -239,11 +239,11 @@ TEST_CASE(encode, custom, NULL)
 	f->book.title = "Les miserables";
 	f->book.author.name = "Victor Hugo";
 	f->book.author.age = 40;
-	create_pages(2, 8, &f->book.pages);
+	createPages(2, 8, &f->book.pages);
 	strcpy(f->book.pages.bufs[0], "Fantine");
 	strcpy(f->book.pages.bufs[1], "Cosette");
 
-	size = book__sizeof(&f->book);
+	size = bookSizeof(&f->book);
 	munit_assert_int(size, ==,
 			 16 +     /* title                                   */
 			     16 + /* author name                             */
@@ -255,7 +255,7 @@ TEST_CASE(encode, custom, NULL)
 
 	buf = munit_malloc(size);
 	cursor = buf;
-	book__encode(&f->book, &cursor);
+	bookEncode(&f->book, &cursor);
 
 	cursor = buf;
 
@@ -265,13 +265,13 @@ TEST_CASE(encode, custom, NULL)
 	munit_assert_string_equal(cursor, "Victor Hugo");
 	cursor += 16;
 
-	munit_assert_int(byte__flip64(*(uint64_t *)cursor), ==, 40);
+	munit_assert_int(byteFlip64(*(uint64_t *)cursor), ==, 40);
 	cursor += 8;
 
-	munit_assert_int(byte__flip16(*(uint16_t *)cursor), ==, 2);
+	munit_assert_int(byteFlip16(*(uint16_t *)cursor), ==, 2);
 	cursor += 2;
 
-	munit_assert_int(byte__flip16(*(uint16_t *)cursor), ==, 8);
+	munit_assert_int(byteFlip16(*(uint16_t *)cursor), ==, 8);
 	cursor += 2;
 
 	cursor += 4; /* Unused */
@@ -282,7 +282,7 @@ TEST_CASE(encode, custom, NULL)
 	munit_assert_string_equal(cursor, "Cosette");
 
 	free(buf);
-	destroy_pages(&f->book.pages);
+	destroyPages(&f->book.pages);
 
 	return MUNIT_OK;
 }
@@ -305,8 +305,8 @@ TEST_CASE(decode, padding, NULL)
 	struct cursor cursor = {buf, 16 + 8};
 	(void)params;
 	strcpy(buf, "John Doh");
-	*(uint64_t *)(buf + 16) = byte__flip64(40);
-	person__decode(&cursor, &f->person);
+	*(uint64_t *)(buf + 16) = byteFlip64(40);
+	personDecode(&cursor, &f->person);
 	munit_assert_string_equal(f->person.name, "John Doh");
 	munit_assert_int(f->person.age, ==, 40);
 	free(buf);
@@ -314,15 +314,15 @@ TEST_CASE(decode, padding, NULL)
 }
 
 /* Padding is not added if a string ends exactly at word boundary. */
-TEST_CASE(decode, no_padding, NULL)
+TEST_CASE(decode, noPadding, NULL)
 {
 	struct fixture *f = data;
 	void *buf = munit_malloc(16 + 8);
 	struct cursor cursor = {buf, 16 + 8};
 	(void)params;
 	strcpy(buf, "Joe Doh");
-	*(uint64_t *)(buf + 8) = byte__flip64(40);
-	person__decode(&cursor, &f->person);
+	*(uint64_t *)(buf + 8) = byteFlip64(40);
+	personDecode(&cursor, &f->person);
 	munit_assert_string_equal(f->person.name, "Joe Doh");
 	munit_assert_int(f->person.age, ==, 40);
 	free(buf);
@@ -338,7 +338,7 @@ TEST_CASE(decode, short, NULL)
 	int rc;
 	(void)params;
 	strcpy(buf, "John Doh");
-	rc = person__decode(&cursor, &f->person);
+	rc = personDecode(&cursor, &f->person);
 	munit_assert_int(rc, ==, DQLITE_PARSE);
 	free(buf);
 	return MUNIT_OK;
@@ -366,13 +366,13 @@ TEST_CASE(decode, custom, NULL)
 	strcpy(p, "Victor Hugo");
 	p += 16;
 
-	*(uint64_t *)p = byte__flip64(40);
+	*(uint64_t *)p = byteFlip64(40);
 	p += 8;
 
-	*(uint16_t *)p = byte__flip16(2);
+	*(uint16_t *)p = byteFlip16(2);
 	p += 2;
 
-	*(uint16_t *)p = byte__flip16(8);
+	*(uint16_t *)p = byteFlip16(8);
 	p += 2;
 
 	p += 4; /* Unused */
@@ -382,7 +382,7 @@ TEST_CASE(decode, custom, NULL)
 
 	strcpy(p, "Cosette");
 
-	book__decode(&cursor, &f->book);
+	bookDecode(&cursor, &f->book);
 
 	munit_assert_string_equal(f->book.title, "Les miserables");
 	munit_assert_string_equal(f->book.author.name, "Victor Hugo");

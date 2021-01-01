@@ -12,7 +12,7 @@
  * and will happen immediately. */
 #define TEST_SOCKET_MIN_BUF_SIZE 4096
 
-/* Munit parameter defining the socket type to use in test_endpoint_setup.
+/* Munit parameter defining the socket type to use in testEndpointSetup.
  *
  * If set to "unix" a pair of unix abstract sockets will be created. If set to
  * "tcp" a pair of TCP sockets using the loopback interface will be created. */
@@ -20,39 +20,38 @@
 
 /* Null-terminated list of legal values for TEST_ENDPOINT_FAMILY. Currently
  * "unix" and "tcp". */
-extern char *test_endpoint_family_values[];
+extern char *testEndpointFamilyValues[];
 
 /* Listening socket endpoint. */
-struct test_endpoint
+struct testEndpoint
 {
 	char address[256];  /* Rendered address string. */
 	sa_family_t family; /* Address family (either AF_INET or AF_UNIX) */
 	int fd;             /* Listening socket. */
 	union {             /* Server  address (either a TCP or Unix) */
-		struct sockaddr_in in_address;
-		struct sockaddr_un un_address;
+		struct sockaddr_in inAddress;
+		struct sockaddr_un unAddress;
 	};
 };
 
 /* Create a listening endpoint.
  *
  * This will bind a random address and start listening to it. */
-void test_endpoint_setup(struct test_endpoint *e,
-			 const MunitParameter params[]);
+void testEndpointSetup(struct testEndpoint *e, const MunitParameter params[]);
 
 /* Tear down a listening endpoint. */
-void test_endpoint_tear_down(struct test_endpoint *e);
+void testEndpointTearDown(struct testEndpoint *e);
 
 /* Establish a new client connection. */
-int test_endpoint_connect(struct test_endpoint *e);
+int testEndpointConnect(struct testEndpoint *e);
 
 /* Accept a new client connection. */
-int test_endpoint_accept(struct test_endpoint *e);
+int testEndpointAccept(struct testEndpoint *e);
 
 /* Connect and accept a connection, returning the pair of connected sockets. */
-void test_endpoint_pair(struct test_endpoint *e, int *server, int *client);
+void testEndpointPair(struct testEndpoint *e, int *server, int *client);
 
 /* Return the endpoint address. */
-const char *test_endpoint_address(struct test_endpoint *e);
+const char *testEndpointAddress(struct testEndpoint *e);
 
 #endif /* TEST_ENDPOINT_H */

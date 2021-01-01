@@ -20,7 +20,7 @@ struct barrier;
 struct leader;
 
 typedef void (*exec_cb)(struct exec *req, int status);
-typedef void (*barrier_cb)(struct barrier *req, int status);
+typedef void (*barrierCb)(struct barrier *req, int status);
 
 /* Wrapper around raft_apply, saving context information. */
 struct apply
@@ -32,7 +32,7 @@ struct apply
 	union {                /* Command-specific data */
 		struct
 		{
-			bool is_commit;
+			bool isCommit;
 		} frames;
 	};
 };
@@ -45,7 +45,7 @@ struct leader
 	struct exec *exec;       /* Exec request in progress, if any. */
 	struct raft_apply apply; /* To apply checkpoint commands */
 	queue queue;             /* Prev/next leader, used by struct db. */
-	struct apply *inflight;  /* TODO: make leader__close async */
+	struct apply *inflight;  /* TODO: make leaderClose async */
 };
 
 struct barrier
@@ -53,7 +53,7 @@ struct barrier
 	void *data;
 	struct leader *leader;
 	struct raft_barrier req;
-	barrier_cb cb;
+	barrierCb cb;
 };
 
 /**
@@ -78,9 +78,9 @@ struct exec
  * transfering control back to main coroutine and then opening a new leader
  * connection against the given database.
  */
-int leader__init(struct leader *l, struct db *db, struct raft *raft);
+int leaderInit(struct leader *l, struct db *db, struct raft *raft);
 
-void leader__close(struct leader *l);
+void leaderClose(struct leader *l);
 
 /**
  * Submit a request to step a SQLite statement.
@@ -97,10 +97,10 @@ void leader__close(struct leader *l);
  * loop which will then have completed the request and transfer control back to
  * the main coroutine, pausing until the next request.
  */
-int leader__exec(struct leader *l,
-		 struct exec *req,
-		 sqlite3_stmt *stmt,
-		 exec_cb cb);
+int leaderExec(struct leader *l,
+	       struct exec *req,
+	       sqlite3_stmt *stmt,
+	       exec_cb cb);
 
 /**
  * Submit a raft barrier request if there is no transaction in progress in the
@@ -108,6 +108,6 @@ int leader__exec(struct leader *l,
  *
  * Otherwise, just invoke the given @cb immediately.
  */
-int leader__barrier(struct leader *l, struct barrier *barrier, barrier_cb cb);
+int leaderBarrier(struct leader *l, struct barrier *barrier, barrierCb cb);
 
 #endif /* LEADER_H_*/

@@ -7,15 +7,15 @@
 #include "../../include/dqlite.h"
 
 /* How large is the buffer currently */
-#define SIZE(B) (B->n_pages * B->page_size)
+#define SIZE(B) (B->nPages * B->pageSize)
 
 /* How many remaining bytes the buffer currently */
 #define CAP(B) (SIZE(B) - B->offset)
 
-int buffer__init(struct buffer *b)
+int bufferInit(struct buffer *b)
 {
-	b->page_size = (unsigned)sysconf(_SC_PAGESIZE);
-	b->n_pages = 1;
+	b->pageSize = (unsigned)sysconf(_SC_PAGESIZE);
+	b->nPages = 1;
 	b->data = malloc(SIZE(b));
 	if (b->data == NULL) {
 		return DQLITE_NOMEM;
@@ -24,7 +24,7 @@ int buffer__init(struct buffer *b)
 	return 0;
 }
 
-void buffer__close(struct buffer *b)
+void bufferClose(struct buffer *b)
 {
 	free(b->data);
 }
@@ -35,7 +35,7 @@ static bool ensure(struct buffer *b, size_t size)
 	/* Double the buffer until we have enough capacity */
 	while (size > CAP(b)) {
 		void *data;
-		b->n_pages *= 2;
+		b->nPages *= 2;
 		data = realloc(b->data, SIZE(b));
 		if (data == NULL) {
 			return false;
@@ -45,7 +45,7 @@ static bool ensure(struct buffer *b, size_t size)
 	return true;
 }
 
-void *buffer__advance(struct buffer *b, size_t size)
+void *bufferAdvance(struct buffer *b, size_t size)
 {
 	void *cursor;
 
@@ -53,21 +53,22 @@ void *buffer__advance(struct buffer *b, size_t size)
 		return NULL;
 	}
 
-	cursor = buffer__cursor(b, b->offset);
+	cursor = bufferCursor(b, b->offset);
 	b->offset += size;
 	return cursor;
 }
 
-size_t buffer__offset(struct buffer *b) {
+size_t bufferOffset(struct buffer *b)
+{
 	return b->offset;
 }
 
-void *buffer__cursor(struct buffer *b, size_t offset)
+void *bufferCursor(struct buffer *b, size_t offset)
 {
 	return b->data + offset;
 }
 
-void buffer__reset(struct buffer *b)
+void bufferReset(struct buffer *b)
 {
 	b->offset = 0;
 }

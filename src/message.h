@@ -12,6 +12,6 @@
 	X(uint8, flags, ##__VA_ARGS__)  \
 	X(uint16, extra, ##__VA_ARGS__)
 
-SERIALIZE__DEFINE(message, MESSAGE);
+SERIALIZE_DEFINE(message, MESSAGE);
 
-#endif /* MESSAGE_H_x */
+#endif /* MESSAGE_HX */

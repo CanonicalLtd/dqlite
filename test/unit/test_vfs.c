@@ -25,7 +25,7 @@ struct fixture
 	struct sqlite3_vfs vfs;
 };
 
-static void *setUp(const MunitParameter params[], void *user_data)
+static void *setUp(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	int rv;
@@ -57,14 +57,14 @@ static void tearDown(void *data)
 /* Helper for creating a new file */
 static sqlite3_file *__file_create(sqlite3_vfs *vfs,
 				   const char *name,
-				   int type_flag)
+				   int typeFlag)
 {
 	sqlite3_file *file = munit_malloc(vfs->szOsFile);
 
 	int flags;
 	int rc;
 
-	flags = SQLITE_OPEN_EXCLUSIVE | SQLITE_OPEN_CREATE | type_flag;
+	flags = SQLITE_OPEN_EXCLUSIVE | SQLITE_OPEN_CREATE | typeFlag;
 
 	rc = vfs->xOpen(vfs, name, file, flags, &flags);
 	munit_assert_int(rc, ==, 0);
@@ -73,14 +73,14 @@ static sqlite3_file *__file_create(sqlite3_vfs *vfs,
 }
 
 /* Helper for creating a new database file */
-static sqlite3_file *__file_create_main_db(sqlite3_vfs *vfs)
+static sqlite3_file *__file_create_mainDb(sqlite3_vfs *vfs)
 {
 	return __file_create(vfs, "test.db", SQLITE_OPEN_MAIN_DB);
 }
 
 /* Helper for allocating a buffer of 100 bytes containing a database header with
  * a page size field set to 512 bytes. */
-static void *__buf_header_main_db(void)
+static void *__bufHeaderMain_db(void)
 {
 	char *buf = munit_malloc(100 * sizeof *buf);
 
@@ -93,7 +93,7 @@ static void *__buf_header_main_db(void)
 
 /* Helper for allocating a buffer with the content of the first page, i.e. the
  * the header and some other bytes. */
-static void *__buf_page_1(void)
+static void *__bufPage_1(void)
 {
 	char *buf = munit_malloc(512 * sizeof *buf);
 
@@ -110,7 +110,7 @@ static void *__buf_page_1(void)
 }
 
 /* Helper for allocating a buffer with the content of the second page. */
-static void *__buf_page_2(void)
+static void *__bufPage_2(void)
 {
 	char *buf = munit_malloc(512 * sizeof *buf);
 
@@ -149,7 +149,7 @@ static sqlite3 *__db_open(void)
 }
 
 /* Helper to close a database. */
-static void __db_close(sqlite3 *db)
+static void __dbClose(sqlite3 *db)
 {
 	int rv;
 	rv = sqlite3_close(db);
@@ -158,11 +158,11 @@ static void __db_close(sqlite3 *db)
 
 /* Helper get the mxFrame value of the WAL index object associated with the
  * given database. */
-static uint32_t __wal_idx_mx_frame(sqlite3 *db)
+static uint32_t __walIdx_mxFrame(sqlite3 *db)
 {
 	sqlite3_file *file;
 	volatile void *region;
-	uint32_t mx_frame;
+	uint32_t mxFrame;
 	int rc;
 
 	rc = sqlite3_file_control(db, "main", SQLITE_FCNTL_FILE_POINTER, &file);
@@ -173,14 +173,14 @@ static uint32_t __wal_idx_mx_frame(sqlite3 *db)
 
 	/* The mxFrame number is 16th byte of the WAL index header. See also
 	 * https://sqlite.org/walformat.html. */
-	mx_frame = ((uint32_t *)region)[4];
+	mxFrame = ((uint32_t *)region)[4];
 
-	return mx_frame;
+	return mxFrame;
 }
 
 /* Helper get the read mark array of the WAL index object associated with the
  * given database. */
-static uint32_t *__wal_idx_read_marks(sqlite3 *db)
+static uint32_t *__walIdx_readMarks(sqlite3 *db)
 {
 	sqlite3_file *file;
 	volatile void *region;
@@ -188,7 +188,7 @@ static uint32_t *__wal_idx_read_marks(sqlite3 *db)
 	uint32_t *marks;
 	int rc;
 
-	marks = munit_malloc(FORMAT__WAL_NREADER * sizeof *marks);
+	marks = munit_malloc(FORMAT_WAL_NREADER * sizeof *marks);
 
 	rc = sqlite3_file_control(db, "main", SQLITE_FCNTL_FILE_POINTER, &file);
 	munit_assert_int(rc, ==, SQLITE_OK);
@@ -199,7 +199,7 @@ static uint32_t *__wal_idx_read_marks(sqlite3 *db)
 	/* The read-mark array starts at the 100th byte of the WAL index
 	 * header. See also https://sqlite.org/walformat.html. */
 	idx = (uint32_t *)region;
-	memcpy(marks, &idx[25], (sizeof *idx) * FORMAT__WAL_NREADER);
+	memcpy(marks, &idx[25], (sizeof *idx) * FORMAT_WAL_NREADER);
 
 	return marks;
 }
@@ -366,7 +366,7 @@ TEST(VfsOpen, synchronous, setUp, tearDown, 0, NULL)
 
 	munit_assert_string_equal(sqlite3_errmsg(db), "disk I/O error");
 
-	__db_close(db);
+	__dbClose(db);
 
 	rc = sqlite3_vfs_unregister(&f->vfs);
 	munit_assert_int(rc, ==, SQLITE_OK);
@@ -384,8 +384,8 @@ TEST(VfsOpen, oom, setUp, tearDown, 0, NULL)
 
 	(void)params;
 
-	test_heap_fault_config(0, 1);
-	test_heap_fault_enable();
+	testHeapFaultConfig(0, 1);
+	testHeapFaultEnable();
 
 	rc = f->vfs.xOpen(&f->vfs, "test.db", file, flags, &flags);
 	munit_assert_int(rc, ==, SQLITE_CANTOPEN);
@@ -405,8 +405,8 @@ TEST(VfsOpen, oomFilename, setUp, tearDown, 0, NULL)
 
 	(void)params;
 
-	test_heap_fault_config(1, 1);
-	test_heap_fault_enable();
+	testHeapFaultConfig(1, 1);
+	testHeapFaultEnable();
 
 	rc = f->vfs.xOpen(&f->vfs, "test.db", file, flags, &flags);
 	munit_assert_int(rc, ==, SQLITE_CANTOPEN);
@@ -632,7 +632,7 @@ SUITE(VfsRead)
 TEST(VfsRead, neverWritten, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 
 	int rc;
 	char buf[1] = {123};
@@ -662,9 +662,9 @@ SUITE(VfsWrite)
 TEST(VfsWrite, dbHeader, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 
-	void *buf = __buf_header_main_db();
+	void *buf = __bufHeaderMain_db();
 
 	int rc;
 
@@ -684,28 +684,28 @@ TEST(VfsWrite, dbHeader, setUp, tearDown, 0, NULL)
 TEST(VfsWrite, andReadPages, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 
 	int rc;
 	char buf[512];
-	void *buf_header_main = __buf_header_main_db();
-	void *buf_page_1 = __buf_page_1();
-	void *buf_page_2 = __buf_page_2();
+	void *bufHeaderMain = __bufHeaderMain_db();
+	void *bufPage_1 = __bufPage_1();
+	void *bufPage_2 = __bufPage_2();
 
 	(void)params;
 
 	memset(buf, 0, 512);
 
 	/* Write the header. */
-	rc = file->pMethods->xWrite(file, buf_header_main, 100, 0);
+	rc = file->pMethods->xWrite(file, bufHeaderMain, 100, 0);
 	munit_assert_int(rc, ==, 0);
 
 	/* Write the first page, containing the header and some content. */
-	rc = file->pMethods->xWrite(file, buf_page_1, 512, 0);
+	rc = file->pMethods->xWrite(file, bufPage_1, 512, 0);
 	munit_assert_int(rc, ==, 0);
 
 	/* Write a second page. */
-	rc = file->pMethods->xWrite(file, buf_page_2, 512, 512);
+	rc = file->pMethods->xWrite(file, bufPage_2, 512, 512);
 	munit_assert_int(rc, ==, 0);
 
 	/* Read the page header. */
@@ -727,9 +727,9 @@ TEST(VfsWrite, andReadPages, setUp, tearDown, 0, NULL)
 	munit_assert_int(buf[256], ==, 5);
 	munit_assert_int(buf[511], ==, 6);
 
-	free(buf_header_main);
-	free(buf_page_1);
-	free(buf_page_2);
+	free(bufHeaderMain);
+	free(bufPage_1);
+	free(bufPage_2);
 	free(file);
 
 	return MUNIT_OK;
@@ -739,23 +739,23 @@ TEST(VfsWrite, andReadPages, setUp, tearDown, 0, NULL)
 TEST(VfsWrite, oomPage, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_header_main = __buf_header_main_db();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufHeaderMain = __bufHeaderMain_db();
 	char buf[512];
 	int rc;
 
-	test_heap_fault_config(0, 1);
-	test_heap_fault_enable();
+	testHeapFaultConfig(0, 1);
+	testHeapFaultEnable();
 
 	(void)params;
 
 	memset(buf, 0, 512);
 
 	/* Write the database header, which triggers creating the first page. */
-	rc = file->pMethods->xWrite(file, buf_header_main, 100, 0);
+	rc = file->pMethods->xWrite(file, bufHeaderMain, 100, 0);
 	munit_assert_int(rc, ==, SQLITE_NOMEM);
 
-	free(buf_header_main);
+	free(bufHeaderMain);
 	free(file);
 
 	return MUNIT_OK;
@@ -766,23 +766,23 @@ TEST(VfsWrite, oomPage, setUp, tearDown, 0, NULL)
 TEST(VfsWrite, oomPageArray, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_header_main = __buf_header_main_db();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufHeaderMain = __bufHeaderMain_db();
 	char buf[512];
 	int rc;
 
-	test_heap_fault_config(1, 1);
-	test_heap_fault_enable();
+	testHeapFaultConfig(1, 1);
+	testHeapFaultEnable();
 
 	(void)params;
 
 	memset(buf, 0, 512);
 
 	/* Write the database header, which triggers creating the first page. */
-	rc = file->pMethods->xWrite(file, buf_header_main, 100, 0);
+	rc = file->pMethods->xWrite(file, bufHeaderMain, 100, 0);
 	munit_assert_int(rc, ==, SQLITE_NOMEM);
 
-	free(buf_header_main);
+	free(bufHeaderMain);
 	free(file);
 
 	return MUNIT_OK;
@@ -792,23 +792,23 @@ TEST(VfsWrite, oomPageArray, setUp, tearDown, 0, NULL)
 TEST(VfsWrite, oomPageBuf, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_header_main = __buf_header_main_db();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufHeaderMain = __bufHeaderMain_db();
 	char buf[512];
 	int rc;
 
-	test_heap_fault_config(1, 1);
-	test_heap_fault_enable();
+	testHeapFaultConfig(1, 1);
+	testHeapFaultEnable();
 
 	(void)params;
 
 	memset(buf, 0, 512);
 
 	/* Write the database header, which triggers creating the first page. */
-	rc = file->pMethods->xWrite(file, buf_header_main, 100, 0);
+	rc = file->pMethods->xWrite(file, bufHeaderMain, 100, 0);
 	munit_assert_int(rc, ==, SQLITE_NOMEM);
 
-	free(buf_header_main);
+	free(bufHeaderMain);
 	free(file);
 
 	return MUNIT_OK;
@@ -818,9 +818,9 @@ TEST(VfsWrite, oomPageBuf, setUp, tearDown, 0, NULL)
 TEST(VfsWrite, beyondLast, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_page_1 = __buf_page_1();
-	void *buf_page_2 = __buf_page_2();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufPage_1 = __bufPage_1();
+	void *bufPage_2 = __bufPage_2();
 	char buf[512];
 	int rc;
 
@@ -829,15 +829,15 @@ TEST(VfsWrite, beyondLast, setUp, tearDown, 0, NULL)
 	memset(buf, 0, 512);
 
 	/* Write the first page. */
-	rc = file->pMethods->xWrite(file, buf_page_1, 512, 0);
+	rc = file->pMethods->xWrite(file, bufPage_1, 512, 0);
 	munit_assert_int(rc, ==, 0);
 
 	/* Write the third page, without writing the second. */
-	rc = file->pMethods->xWrite(file, buf_page_2, 512, 1024);
+	rc = file->pMethods->xWrite(file, bufPage_2, 512, 1024);
 	munit_assert_int(rc, ==, SQLITE_IOERR_WRITE);
 
-	free(buf_page_1);
-	free(buf_page_2);
+	free(bufPage_1);
+	free(bufPage_2);
 	free(file);
 
 	return MUNIT_OK;
@@ -855,9 +855,9 @@ SUITE(VfsTruncate);
 TEST(VfsTruncate, database, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_page_1 = __buf_page_1();
-	void *buf_page_2 = __buf_page_2();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufPage_1 = __bufPage_1();
+	void *bufPage_2 = __bufPage_2();
 
 	int rc;
 
@@ -880,11 +880,11 @@ TEST(VfsTruncate, database, setUp, tearDown, 0, NULL)
 	munit_assert_int(size, ==, 0);
 
 	/* Write the first page, containing the header. */
-	rc = file->pMethods->xWrite(file, buf_page_1, 512, 0);
+	rc = file->pMethods->xWrite(file, bufPage_1, 512, 0);
 	munit_assert_int(rc, ==, 0);
 
 	/* Write a second page. */
-	rc = file->pMethods->xWrite(file, buf_page_2, 512, 512);
+	rc = file->pMethods->xWrite(file, bufPage_2, 512, 512);
 	munit_assert_int(rc, ==, 0);
 
 	/* The size is 1024. */
@@ -910,8 +910,8 @@ TEST(VfsTruncate, database, setUp, tearDown, 0, NULL)
 	munit_assert_int(rc, ==, 0);
 	munit_assert_int(size, ==, 0);
 
-	free(buf_page_1);
-	free(buf_page_2);
+	free(bufPage_1);
+	free(bufPage_2);
 	free(file);
 
 	return MUNIT_OK;
@@ -922,7 +922,7 @@ TEST(VfsTruncate, database, setUp, tearDown, 0, NULL)
 TEST(VfsTruncate, unexpected, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *main_db = __file_create_main_db(&f->vfs);
+	sqlite3_file *mainDb = __file_create_mainDb(&f->vfs);
 	sqlite3_file *file = munit_malloc(f->vfs.szOsFile);
 	int flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_MAIN_JOURNAL;
 	char buf[32];
@@ -943,7 +943,7 @@ TEST(VfsTruncate, unexpected, setUp, tearDown, 0, NULL)
 	munit_assert_int(rc, ==, SQLITE_IOERR_TRUNCATE);
 
 	free(file);
-	free(main_db);
+	free(mainDb);
 
 	return MUNIT_OK;
 }
@@ -952,7 +952,7 @@ TEST(VfsTruncate, unexpected, setUp, tearDown, 0, NULL)
 TEST(VfsTruncate, empty, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 	sqlite_int64 size;
 	int rc;
 
@@ -976,7 +976,7 @@ TEST(VfsTruncate, empty, setUp, tearDown, 0, NULL)
 TEST(VfsTruncate, emptyGrow, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 	int rc;
 
 	(void)params;
@@ -995,22 +995,22 @@ TEST(VfsTruncate, emptyGrow, setUp, tearDown, 0, NULL)
 TEST(VfsTruncate, misaligned, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
-	void *buf_page_1 = __buf_page_1();
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
+	void *bufPage_1 = __bufPage_1();
 
 	int rc;
 
 	(void)params;
 
 	/* Write the first page, containing the header. */
-	rc = file->pMethods->xWrite(file, buf_page_1, 512, 0);
+	rc = file->pMethods->xWrite(file, bufPage_1, 512, 0);
 	munit_assert_int(rc, ==, 0);
 
 	/* Truncating to an invalid size. */
 	rc = file->pMethods->xTruncate(file, 400);
 	munit_assert_int(rc, ==, SQLITE_IOERR_TRUNCATE);
 
-	free(buf_page_1);
+	free(bufPage_1);
 	free(file);
 
 	return MUNIT_OK;
@@ -1024,27 +1024,27 @@ TEST(VfsTruncate, misaligned, setUp, tearDown, 0, NULL)
 
 SUITE(VfsShmMap);
 
-static char *test_shm_map_oom_delay[] = {"0", "1", NULL};
-static char *test_shm_map_oom_repeat[] = {"1", NULL};
+static char *testShmMapOomDelay[] = {"0", "1", NULL};
+static char *testShmMapOomRepeat[] = {"1", NULL};
 
-static MunitParameterEnum test_shm_map_oom_params[] = {
-    {TEST_HEAP_FAULT_DELAY, test_shm_map_oom_delay},
-    {TEST_HEAP_FAULT_REPEAT, test_shm_map_oom_repeat},
+static MunitParameterEnum testShmMapOomParams[] = {
+    {TEST_HEAP_FAULT_DELAY, testShmMapOomDelay},
+    {TEST_HEAP_FAULT_REPEAT, testShmMapOomRepeat},
     {NULL, NULL},
 };
 
 /* Out of memory when trying to initialize the internal VFS shm data struct. */
-TEST(VfsShmMap, oom, setUp, tearDown, 0, test_shm_map_oom_params)
+TEST(VfsShmMap, oom, setUp, tearDown, 0, testShmMapOomParams)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 	volatile void *region;
 	int rc;
 
 	(void)params;
 	(void)data;
 
-	test_heap_fault_enable();
+	testHeapFaultEnable();
 
 	rc = file->pMethods->xShmMap(file, 0, 32768, 1, &region);
 	munit_assert_int(rc, ==, SQLITE_NOMEM);
@@ -1140,7 +1140,7 @@ TEST(VfsShmLock, releaseUnix, setUp, tearDown, 0, NULL)
 	sqlite3_file *file = munit_malloc(vfs->szOsFile);
 	int flags =
 	    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_MAIN_DB;
-	char *dir = test_dir_setup();
+	char *dir = testDirSetup();
 	char buf[1024];
 	char *path;
 	volatile void *region;
@@ -1178,7 +1178,7 @@ TEST(VfsShmLock, releaseUnix, setUp, tearDown, 0, NULL)
 	rc = file->pMethods->xClose(file);
 	munit_assert_int(rc, ==, 0);
 
-	test_dir_tear_down(dir);
+	testDirTearDown(dir);
 
 	free(file);
 
@@ -1237,7 +1237,7 @@ SUITE(VfsFileControl)
 TEST(VfsFileControl, journal, setUp, tearDown, 0, NULL)
 {
 	struct fixture *f = data;
-	sqlite3_file *file = __file_create_main_db(&f->vfs);
+	sqlite3_file *file = __file_create_mainDb(&f->vfs);
 	char *fnctl[] = {
 	    "",
 	    "journal_mode",
@@ -1314,16 +1314,16 @@ TEST(VfsSleep, success, setUp, tearDown, 0, NULL)
 
 SUITE(VfsInit);
 
-static char *test_create_oom_delay[] = {"0", NULL};
-static char *test_create_oom_repeat[] = {"1", NULL};
+static char *testCreateOomDelay[] = {"0", NULL};
+static char *testCreateOomRepeat[] = {"1", NULL};
 
-static MunitParameterEnum test_create_oom_params[] = {
-    {TEST_HEAP_FAULT_DELAY, test_create_oom_delay},
-    {TEST_HEAP_FAULT_REPEAT, test_create_oom_repeat},
+static MunitParameterEnum testCreateOomParams[] = {
+    {TEST_HEAP_FAULT_DELAY, testCreateOomDelay},
+    {TEST_HEAP_FAULT_REPEAT, testCreateOomRepeat},
     {NULL, NULL},
 };
 
-TEST(VfsInit, oom, setUp, tearDown, 0, test_create_oom_params)
+TEST(VfsInit, oom, setUp, tearDown, 0, testCreateOomParams)
 {
 	struct sqlite3_vfs vfs;
 	int rv;
@@ -1331,7 +1331,7 @@ TEST(VfsInit, oom, setUp, tearDown, 0, test_create_oom_params)
 	(void)params;
 	(void)data;
 
-	test_heap_fault_enable();
+	testHeapFaultEnable();
 
 	rv = VfsInit(&vfs, "dqlite");
 	munit_assert_int(rv, ==, DQLITE_NOMEM);
@@ -1352,7 +1352,7 @@ TEST(VfsIntegration, wal, setUp, tearDown, 0, NULL)
 {
 	sqlite3 *db1;
 	sqlite3 *db2;
-	uint32_t *read_marks;
+	uint32_t *readMarks;
 	int i;
 
 	(void)data;
@@ -1365,31 +1365,31 @@ TEST(VfsIntegration, wal, setUp, tearDown, 0, NULL)
 
 	__db_exec(db1, "CREATE TABLE test (n INT)");
 
-	munit_assert_int(__wal_idx_mx_frame(db1), ==, 2);
+	munit_assert_int(__walIdx_mxFrame(db1), ==, 2);
 
-	read_marks = __wal_idx_read_marks(db1);
-	munit_assert_uint32(read_marks[0], ==, 0);
-	munit_assert_uint32(read_marks[1], ==, 0);
-	munit_assert_uint32(read_marks[2], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[3], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[4], ==, 0xffffffff);
-	free(read_marks);
+	readMarks = __walIdx_readMarks(db1);
+	munit_assert_uint32(readMarks[0], ==, 0);
+	munit_assert_uint32(readMarks[1], ==, 0);
+	munit_assert_uint32(readMarks[2], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[3], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[4], ==, 0xffffffff);
+	free(readMarks);
 
 	/* Start a read transaction on db2 */
 	__db_exec(db2, "BEGIN");
 	__db_exec(db2, "SELECT * FROM test");
 
 	/* The max frame is set to 2, which is the current size of the WAL. */
-	munit_assert_int(__wal_idx_mx_frame(db2), ==, 2);
+	munit_assert_int(__walIdx_mxFrame(db2), ==, 2);
 
 	/* The starting mx frame value has been saved in the read marks */
-	read_marks = __wal_idx_read_marks(db2);
-	munit_assert_uint32(read_marks[0], ==, 0);
-	munit_assert_uint32(read_marks[1], ==, 2);
-	munit_assert_uint32(read_marks[2], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[3], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[4], ==, 0xffffffff);
-	free(read_marks);
+	readMarks = __walIdx_readMarks(db2);
+	munit_assert_uint32(readMarks[0], ==, 0);
+	munit_assert_uint32(readMarks[1], ==, 2);
+	munit_assert_uint32(readMarks[2], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[3], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[4], ==, 0xffffffff);
+	free(readMarks);
 
 	/* A shared lock is held on the second read mark (read locks start at
 	 * 3). */
@@ -1403,21 +1403,21 @@ TEST(VfsIntegration, wal, setUp, tearDown, 0, NULL)
 	}
 
 	/* The mx frame is still 2 since the transaction is not committed. */
-	munit_assert_int(__wal_idx_mx_frame(db1), ==, 2);
+	munit_assert_int(__walIdx_mxFrame(db1), ==, 2);
 
 	/* No extra read mark wal taken. */
-	read_marks = __wal_idx_read_marks(db1);
-	munit_assert_uint32(read_marks[0], ==, 0);
-	munit_assert_uint32(read_marks[1], ==, 2);
-	munit_assert_uint32(read_marks[2], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[3], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[4], ==, 0xffffffff);
-	free(read_marks);
+	readMarks = __walIdx_readMarks(db1);
+	munit_assert_uint32(readMarks[0], ==, 0);
+	munit_assert_uint32(readMarks[1], ==, 2);
+	munit_assert_uint32(readMarks[2], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[3], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[4], ==, 0xffffffff);
+	free(readMarks);
 
 	__db_exec(db1, "COMMIT");
 
 	/* The mx frame is now 6. */
-	munit_assert_int(__wal_idx_mx_frame(db1), ==, 6);
+	munit_assert_int(__walIdx_mxFrame(db1), ==, 6);
 
 	/* The old read lock is still in place. */
 	munit_assert_true(__shm_shared_lock_held(db2, 3 + 1));
@@ -1427,16 +1427,16 @@ TEST(VfsIntegration, wal, setUp, tearDown, 0, NULL)
 	__db_exec(db1, "SELECT * FROM test");
 
 	/* The mx frame is still unchanged. */
-	munit_assert_int(__wal_idx_mx_frame(db1), ==, 6);
+	munit_assert_int(__walIdx_mxFrame(db1), ==, 6);
 
 	/* A new read mark was taken. */
-	read_marks = __wal_idx_read_marks(db1);
-	munit_assert_uint32(read_marks[0], ==, 0);
-	munit_assert_uint32(read_marks[1], ==, 2);
-	munit_assert_uint32(read_marks[2], ==, 6);
-	munit_assert_uint32(read_marks[3], ==, 0xffffffff);
-	munit_assert_uint32(read_marks[4], ==, 0xffffffff);
-	free(read_marks);
+	readMarks = __walIdx_readMarks(db1);
+	munit_assert_uint32(readMarks[0], ==, 0);
+	munit_assert_uint32(readMarks[1], ==, 2);
+	munit_assert_uint32(readMarks[2], ==, 6);
+	munit_assert_uint32(readMarks[3], ==, 0xffffffff);
+	munit_assert_uint32(readMarks[4], ==, 0xffffffff);
+	free(readMarks);
 
 	/* The old read lock is still in place. */
 	munit_assert_true(__shm_shared_lock_held(db2, 3 + 1));
@@ -1444,8 +1444,8 @@ TEST(VfsIntegration, wal, setUp, tearDown, 0, NULL)
 	/* The new read lock is in place as well. */
 	munit_assert_true(__shm_shared_lock_held(db2, 3 + 2));
 
-	__db_close(db1);
-	__db_close(db2);
+	__dbClose(db1);
+	__dbClose(db2);
 
 	return SQLITE_OK;
 }
@@ -1458,8 +1458,8 @@ TEST(VfsIntegration, checkpoint, setUp, tearDown, 0, NULL)
 	sqlite3_file *file1; /* main DB file */
 	sqlite3_file *file2; /* WAL file */
 	sqlite_int64 size;
-	uint32_t *read_marks;
-	unsigned mx_frame;
+	uint32_t *readMarks;
+	unsigned mxFrame;
 	char stmt[128];
 	int log, ckpt;
 	int i;
@@ -1497,8 +1497,8 @@ TEST(VfsIntegration, checkpoint, setUp, tearDown, 0, NULL)
 	rv = file2->pMethods->xFileSize(file2, &size);
 	munit_assert_int(formatWalCalcFramesNumber(512, size), ==, 13);
 
-	mx_frame = __wal_idx_mx_frame(db1);
-	munit_assert_int(mx_frame, ==, 13);
+	mxFrame = __walIdx_mxFrame(db1);
+	munit_assert_int(mxFrame, ==, 13);
 
 	/* Start a read transaction on a different connection, acquiring a
 	 * shared lock on all WAL pages. */
@@ -1506,9 +1506,9 @@ TEST(VfsIntegration, checkpoint, setUp, tearDown, 0, NULL)
 	__db_exec(db2, "BEGIN");
 	__db_exec(db2, "SELECT * FROM test");
 
-	read_marks = __wal_idx_read_marks(db1);
-	munit_assert_int(read_marks[1], ==, 13);
-	free(read_marks);
+	readMarks = __walIdx_readMarks(db1);
+	munit_assert_int(readMarks[1], ==, 13);
+	free(readMarks);
 
 	rv = file1->pMethods->xShmLock(file1, 3 + 1, 1,
 				       SQLITE_SHM_LOCK | SQLITE_SHM_EXCLUSIVE);
@@ -1541,8 +1541,8 @@ TEST(VfsIntegration, checkpoint, setUp, tearDown, 0, NULL)
 				       &log, &ckpt);
 	munit_assert_int(rv, ==, 0);
 
-	__db_close(db1);
-	__db_close(db2);
+	__dbClose(db1);
+	__dbClose(db2);
 
 	return SQLITE_OK;
 }

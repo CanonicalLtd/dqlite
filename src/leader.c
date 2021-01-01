@@ -22,7 +22,7 @@ static void maybeExecDone(struct exec *req)
 /* Open a SQLite connection and set it to leader replication mode. */
 static int openConnection(const char *filename,
 			  const char *vfs,
-			  unsigned page_size,
+			  unsigned pageSize,
 			  sqlite3 **conn)
 {
 	char pragma[255];
@@ -38,49 +38,49 @@ static int openConnection(const char *filename,
 	/* Enable extended result codes */
 	rc = sqlite3_extended_result_codes(*conn, 1);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Set the page size. */
-	sprintf(pragma, "PRAGMA page_size=%d", page_size);
+	sprintf(pragma, "PRAGMA page_size=%d", pageSize);
 	rc = sqlite3_exec(*conn, pragma, NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Disable syncs. */
 	rc = sqlite3_exec(*conn, "PRAGMA synchronous=OFF", NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Set WAL journaling. */
 	rc = sqlite3_exec(*conn, "PRAGMA journal_mode=WAL", NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	rc = sqlite3_exec(*conn, "PRAGMA wal_autocheckpoint=0", NULL, NULL,
 			  &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	rc =
 	    sqlite3_db_config(*conn, SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, NULL);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* TODO: make setting foreign keys optional. */
 	rc = sqlite3_exec(*conn, "PRAGMA foreign_keys=1", NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	return 0;
 
-err_after_open:
+errAfterOpen:
 	sqlite3_close(*conn);
 err:
 	if (msg != NULL) {
@@ -94,17 +94,17 @@ err:
  * index. */
 static bool needsBarrier(struct leader *l)
 {
-	return l->db->tx_id == 0 &&
+	return l->db->txId == 0 &&
 	       raft_last_applied(l->raft) < raft_last_index(l->raft);
 }
 
-int leader__init(struct leader *l, struct db *db, struct raft *raft)
+int leaderInit(struct leader *l, struct db *db, struct raft *raft)
 {
 	int rc;
 	l->db = db;
 	l->raft = raft;
 	rc = openConnection(db->filename, db->config->name,
-			    db->config->page_size, &l->conn);
+			    db->config->pageSize, &l->conn);
 	if (rc != 0) {
 		return rc;
 	}
@@ -112,11 +112,11 @@ int leader__init(struct leader *l, struct db *db, struct raft *raft)
 	l->exec = NULL;
 	l->apply.data = l;
 	l->inflight = NULL;
-	QUEUE__PUSH(&db->leaders, &l->queue);
+	QUEUE_PUSH(&db->leaders, &l->queue);
 	return 0;
 }
 
-void leader__close(struct leader *l)
+void leaderClose(struct leader *l)
 {
 	int rc;
 	/* TODO: there shouldn't be any ongoing exec request. */
@@ -129,7 +129,7 @@ void leader__close(struct leader *l)
 	rc = sqlite3_close(l->conn);
 	assert(rc == 0);
 
-	QUEUE__REMOVE(&l->queue);
+	QUEUE_REMOVE(&l->queue);
 }
 
 static void leaderCheckpointApplyCb(struct raft_apply *req,
@@ -148,7 +148,7 @@ static void leaderCheckpointApplyCb(struct raft_apply *req,
 		    SQLITE_SHM_UNLOCK | SQLITE_SHM_EXCLUSIVE);
 	}
 	l->inflight = NULL;
-	l->db->tx_id = 0;
+	l->db->txId = 0;
 	l->exec->done = true;
 	maybeExecDone(l->exec);
 }
@@ -156,13 +156,13 @@ static void leaderCheckpointApplyCb(struct raft_apply *req,
 /* Attempt to perform a checkpoint if possible. */
 static bool leaderMaybeCheckpoint(struct leader *l)
 {
-	struct sqlite3_file *main_f;
+	struct sqlite3_file *mainF;
 	struct sqlite3_file *wal;
 	struct raft_buffer buf;
-	struct command_checkpoint command;
+	struct commandcheckpoint command;
 	volatile void *region;
 	sqlite3_int64 size;
-	unsigned page_size = l->db->config->page_size;
+	unsigned pageSize = l->db->config->pageSize;
 	unsigned pages;
 	int i;
 	int rv;
@@ -176,30 +176,30 @@ static bool leaderMaybeCheckpoint(struct leader *l)
 	assert(rv == SQLITE_OK); /* Should never fail */
 
 	/* Calculate the number of frames. */
-	pages = ((unsigned)size - 32) / (24 + page_size);
+	pages = ((unsigned)size - 32) / (24 + pageSize);
 
 	/* Check if the size of the WAL is beyond the threshold. */
-	if (pages < l->db->config->checkpoint_threshold) {
+	if (pages < l->db->config->checkpointThreshold) {
 		return false;
 	}
 
 	/* Get the database file associated with this connection */
 	rv = sqlite3_file_control(l->conn, "main", SQLITE_FCNTL_FILE_POINTER,
-				  &main_f);
+				  &mainF);
 	assert(rv == SQLITE_OK); /* Should never fail */
 
 	/* Get the first SHM region, which contains the WAL header. */
-	rv = main_f->pMethods->xShmMap(main_f, 0, 0, 0, &region);
+	rv = mainF->pMethods->xShmMap(mainF, 0, 0, 0, &region);
 	assert(rv == SQLITE_OK); /* Should never fail */
 
-	rv = main_f->pMethods->xShmUnmap(main_f, 0);
+	rv = mainF->pMethods->xShmUnmap(mainF, 0);
 	assert(rv == SQLITE_OK); /* Should never fail */
 
 	/* Try to acquire all locks. */
 	for (i = 0; i < SQLITE_SHM_NLOCK; i++) {
 		int flags = SQLITE_SHM_LOCK | SQLITE_SHM_EXCLUSIVE;
 
-		rv = main_f->pMethods->xShmLock(main_f, i, 1, flags);
+		rv = mainF->pMethods->xShmLock(mainF, i, 1, flags);
 		if (rv == SQLITE_BUSY) {
 			/* There's a reader. Let's postpone the checkpoint
 			 * for now. */
@@ -209,7 +209,7 @@ static bool leaderMaybeCheckpoint(struct leader *l)
 		/* Not locked. Let's release the lock we just
 		 * acquired. */
 		flags = SQLITE_SHM_UNLOCK | SQLITE_SHM_EXCLUSIVE;
-		main_f->pMethods->xShmLock(main_f, i, 1, flags);
+		mainF->pMethods->xShmLock(mainF, i, 1, flags);
 	}
 
 	/* Attempt to perfom a checkpoint across all nodes.
@@ -217,23 +217,23 @@ static bool leaderMaybeCheckpoint(struct leader *l)
 	 * TODO: reason about if it's indeed fine to ignore all kind of
 	 * errors. */
 	command.filename = l->db->filename;
-	rv = command__encode(COMMAND_CHECKPOINT, &command, &buf);
+	rv = commandEncode(COMMAND_CHECKPOINT, &command, &buf);
 	if (rv != 0) {
 		goto abort;
 	}
 
 	rv = raft_apply(l->raft, &l->apply, &buf, 1, leaderCheckpointApplyCb);
 	if (rv != 0) {
-		goto abort_after_command_encode;
+		goto abortAfterCommandEncode;
 	}
 
-	rv = main_f->pMethods->xShmLock(main_f, 1 /* checkpoint lock */, 1,
-				      SQLITE_SHM_LOCK | SQLITE_SHM_EXCLUSIVE);
+	rv = mainF->pMethods->xShmLock(mainF, 1 /* checkpoint lock */, 1,
+				       SQLITE_SHM_LOCK | SQLITE_SHM_EXCLUSIVE);
 	assert(rv == 0);
 
 	return true;
 
-abort_after_command_encode:
+abortAfterCommandEncode:
 	raft_free(buf.base);
 abort:
 	assert(rv != 0);
@@ -265,12 +265,12 @@ static void leaderApplyFramesCb(struct raft_apply *req,
 			case RAFT_SHUTDOWN:
 				/* If we got here it means we have manually
 				 * fired the apply callback from
-				 * gateway__close(). In this case we don't
+				 * gatewayClose(). In this case we don't
 				 * free() the apply object, since it will be
 				 * freed when the callback is fired again by
 				 * raft.
 				 *
-				 * TODO: we should instead make gatewa__close()
+				 * TODO: we should instead make gatewaClose()
 				 * itself asynchronous. */
 				apply->leader = NULL;
 				l->exec->status = SQLITE_ABORT;
@@ -292,7 +292,7 @@ static void leaderApplyFramesCb(struct raft_apply *req,
 
 finish:
 	l->inflight = NULL;
-	l->db->tx_id = 0;
+	l->db->txId = 0;
 	l->exec->done = true;
 	maybeExecDone(l->exec);
 }
@@ -303,17 +303,17 @@ static int leaderApplyFrames(struct exec *req,
 {
 	struct leader *l = req->leader;
 	struct db *db = l->db;
-	struct command_frames c;
+	struct commandframes c;
 	struct raft_buffer buf;
 	struct apply *apply;
 	int rv;
 
 	c.filename = db->filename;
-	c.tx_id = 0;
+	c.txId = 0;
 	c.truncate = 0;
-	c.is_commit = 1;
-	c.frames.n_pages = (uint32_t)n;
-	c.frames.page_size = (uint16_t)db->config->page_size;
+	c.isCommit = 1;
+	c.frames.nPages = (uint32_t)n;
+	c.frames.pageSize = (uint16_t)db->config->pageSize;
 	c.frames.data = frames;
 
 	apply = raft_malloc(sizeof *req);
@@ -322,9 +322,9 @@ static int leaderApplyFrames(struct exec *req,
 		goto err;
 	}
 
-	rv = command__encode(COMMAND_FRAMES, &c, &buf);
+	rv = commandEncode(COMMAND_FRAMES, &c, &buf);
 	if (rv != 0) {
-		goto err_after_apply_alloc;
+		goto errAfterApplyAlloc;
 	}
 
 	apply->leader = req->leader;
@@ -333,17 +333,17 @@ static int leaderApplyFrames(struct exec *req,
 
 	rv = raft_apply(l->raft, &apply->req, &buf, 1, leaderApplyFramesCb);
 	if (rv != 0) {
-		goto err_after_command_encode;
+		goto errAfterCommandEncode;
 	}
 
-	db->tx_id = 1;
+	db->txId = 1;
 	l->inflight = apply;
 
 	return 0;
 
-err_after_command_encode:
+errAfterCommandEncode:
 	raft_free(buf.base);
-err_after_apply_alloc:
+errAfterApplyAlloc:
 	raft_free(apply);
 err:
 	assert(rv != 0);
@@ -400,10 +400,10 @@ static void execBarrierCb(struct barrier *barrier, int status)
 	leaderExecV2(req);
 }
 
-int leader__exec(struct leader *l,
-		 struct exec *req,
-		 sqlite3_stmt *stmt,
-		 exec_cb cb)
+int leaderExec(struct leader *l,
+	       struct exec *req,
+	       sqlite3_stmt *stmt,
+	       exec_cb cb)
 {
 	int rv;
 	if (l->exec != NULL) {
@@ -417,7 +417,7 @@ int leader__exec(struct leader *l,
 	req->done = false;
 	req->barrier.data = req;
 
-	rv = leader__barrier(l, &req->barrier, execBarrierCb);
+	rv = leaderBarrier(l, &req->barrier, execBarrierCb);
 	if (rv != 0) {
 		return rv;
 	}
@@ -438,7 +438,7 @@ static void raftBarrierCb(struct raft_barrier *req, int status)
 	barrier->cb(barrier, rv);
 }
 
-int leader__barrier(struct leader *l, struct barrier *barrier, barrier_cb cb)
+int leaderBarrier(struct leader *l, struct barrier *barrier, barrierCb cb)
 {
 	int rv;
 	if (!needsBarrier(l)) {

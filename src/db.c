@@ -7,25 +7,25 @@
 #include "db.h"
 
 /* Open a SQLite connection and set it to follower mode. */
-static int open_follower_conn(const char *filename,
-			      const char *vfs,
-			      unsigned page_size,
-			      sqlite3 **conn);
+static int openFollowerConn(const char *filename,
+			    const char *vfs,
+			    unsigned pageSize,
+			    sqlite3 **conn);
 
-void db__init(struct db *db, struct config *config, const char *filename)
+void dbInit(struct db *db, struct config *config, const char *filename)
 {
 	db->config = config;
 	db->filename = sqlite3_malloc((int)(strlen(filename) + 1));
 	assert(db->filename != NULL); /* TODO: return an error instead */
 	strcpy(db->filename, filename);
 	db->follower = NULL;
-	db->tx_id = 0;
-	QUEUE__INIT(&db->leaders);
+	db->txId = 0;
+	QUEUE_INIT(&db->leaders);
 }
 
-void db__close(struct db *db)
+void dbClose(struct db *db)
 {
-	assert(QUEUE__IS_EMPTY(&db->leaders));
+	assert(QUEUE_IS_EMPTY(&db->leaders));
 	if (db->follower != NULL) {
 		int rc;
 		rc = sqlite3_close(db->follower);
@@ -34,22 +34,22 @@ void db__close(struct db *db)
 	sqlite3_free(db->filename);
 }
 
-int db__open_follower(struct db *db)
+int dbOpenFollower(struct db *db)
 {
 	int rc;
 	assert(db->follower == NULL);
-	rc = open_follower_conn(db->filename, db->config->name,
-				db->config->page_size, &db->follower);
+	rc = openFollowerConn(db->filename, db->config->name,
+			      db->config->pageSize, &db->follower);
 	if (rc != 0) {
 		return rc;
 	}
 	return 0;
 }
 
-static int open_follower_conn(const char *filename,
-			      const char *vfs,
-			      unsigned page_size,
-			      sqlite3 **conn)
+static int openFollowerConn(const char *filename,
+			    const char *vfs,
+			    unsigned pageSize,
+			    sqlite3 **conn)
 {
 	char pragma[255];
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
@@ -64,37 +64,37 @@ static int open_follower_conn(const char *filename,
 	/* Enable extended result codes */
 	rc = sqlite3_extended_result_codes(*conn, 1);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Set the page size. */
-	sprintf(pragma, "PRAGMA page_size=%d", page_size);
+	sprintf(pragma, "PRAGMA page_size=%d", pageSize);
 	rc = sqlite3_exec(*conn, pragma, NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Disable syncs. */
 	rc = sqlite3_exec(*conn, "PRAGMA synchronous=OFF", NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	/* Set WAL journaling. */
 	rc = sqlite3_exec(*conn, "PRAGMA journal_mode=WAL", NULL, NULL, &msg);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	rc =
 	    sqlite3_db_config(*conn, SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, NULL);
 	if (rc != SQLITE_OK) {
-		goto err_after_open;
+		goto errAfterOpen;
 	}
 
 	return 0;
 
-err_after_open:
+errAfterOpen:
 	sqlite3_close(*conn);
 err:
 	if (msg != NULL) {

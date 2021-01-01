@@ -6,7 +6,7 @@
 #include "../../lib/endpoint.h"
 #include "../../lib/uv.h"
 
-TEST_MODULE(lib_transport);
+TEST_MODULE(libTransport);
 
 /******************************************************************************
  *
@@ -16,7 +16,7 @@ TEST_MODULE(lib_transport);
 
 struct fixture
 {
-	struct test_endpoint endpoint;
+	struct testEndpoint endpoint;
 	struct uv_loop_s loop;
 	struct transport transport;
 	int client;
@@ -32,35 +32,35 @@ struct fixture
 	} write;
 };
 
-static void read_cb(struct transport *transport, int status)
+static void readCb(struct transport *transport, int status)
 {
 	struct fixture *f = transport->data;
 	f->read.invoked = true;
 	f->read.status = status;
 }
 
-static void write_cb(struct transport *transport, int status)
+static void writeCb(struct transport *transport, int status)
 {
 	struct fixture *f = transport->data;
 	f->write.invoked = true;
 	f->write.status = status;
 }
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	struct uv_stream_s *stream;
 	int rv;
 	int server;
-	(void)user_data;
-	test_endpoint_setup(&f->endpoint, params);
+	(void)userData;
+	testEndpointSetup(&f->endpoint, params);
 	rv = listen(f->endpoint.fd, 16);
 	munit_assert_int(rv, ==, 0);
-	test_endpoint_pair(&f->endpoint, &server, &f->client);
-	test_uv_setup(params, &f->loop);
-	rv = transport__stream(&f->loop, server, &stream);
+	testEndpointPair(&f->endpoint, &server, &f->client);
+	testUvSetup(params, &f->loop);
+	rv = transportStream(&f->loop, server, &stream);
 	munit_assert_int(rv, ==, 0);
-	rv = transport__init(&f->transport, stream);
+	rv = transportInit(&f->transport, stream);
 	munit_assert_int(rv, ==, 0);
 	f->transport.data = f;
 	f->read.invoked = false;
@@ -76,10 +76,10 @@ static void tear_down(void *data)
 	int rv;
 	rv = close(f->client);
 	munit_assert_int(rv, ==, 0);
-	transport__close(&f->transport, NULL);
-	test_uv_stop(&f->loop);
-	test_uv_tear_down(&f->loop);
-	test_endpoint_tear_down(&f->endpoint);
+	transportClose(&f->transport, NULL);
+	testUvStop(&f->loop);
+	testUvTearDown(&f->loop);
+	testEndpointTearDown(&f->endpoint);
 	free(data);
 }
 
@@ -93,19 +93,19 @@ static void tear_down(void *data)
 #define BUF_ALLOC(N) {munit_malloc(N), N};
 
 /* Start reading into the current buffer */
-#define READ(BUF)                                                   \
-	{                                                           \
-		int rv2;                                            \
-		rv2 = transport__read(&f->transport, BUF, read_cb); \
-		munit_assert_int(rv2, ==, 0);                       \
+#define READ(BUF)                                                \
+	{                                                        \
+		int rv2;                                         \
+		rv2 = transportRead(&f->transport, BUF, readCb); \
+		munit_assert_int(rv2, ==, 0);                    \
 	}
 
 /* Start writing the current buffer into the stream */
-#define WRITE(BUF)                                                    \
-	{                                                             \
-		int rv2;                                              \
-		rv2 = transport__write(&f->transport, BUF, write_cb); \
-		munit_assert_int(rv2, ==, 0);                         \
+#define WRITE(BUF)                                                 \
+	{                                                          \
+		int rv2;                                           \
+		rv2 = transportWrite(&f->transport, BUF, writeCb); \
+		munit_assert_int(rv2, ==, 0);                      \
 	}
 
 /* Write N bytes into the client buffer. Each byte will contain a progressive
@@ -145,7 +145,7 @@ static void tear_down(void *data)
 
 /******************************************************************************
  *
- * transport__read
+ * transportRead
  *
  ******************************************************************************/
 
@@ -160,7 +160,7 @@ TEST_CASE(read, success, NULL)
 	(void)params;
 	CLIENT_WRITE(2);
 	READ(&buf);
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 	ASSERT_READ(0);
 	munit_assert_int(((uint8_t *)buf.base)[0], ==, 1);
 	munit_assert_int(((uint8_t *)buf.base)[1], ==, 2);
@@ -170,7 +170,7 @@ TEST_CASE(read, success, NULL)
 
 /******************************************************************************
  *
- * transport__write
+ * transportWrite
  *
  ******************************************************************************/
 
@@ -184,7 +184,7 @@ TEST_CASE(write, success, NULL)
 	uv_buf_t buf = BUF_ALLOC(2);
 	(void)params;
 	WRITE(&buf);
-	test_uv_run(&f->loop, 1);
+	testUvRun(&f->loop, 1);
 	ASSERT_WRITE(0);
 	free(buf.base);
 	return MUNIT_OK;

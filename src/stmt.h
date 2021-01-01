@@ -57,20 +57,20 @@ struct stmt
 };
 
 /* Initialize a statement state object */
-void stmt__init(struct stmt *s);
+void stmt_init(struct stmt *s);
 
 /* Close a statement state object, releasing all associated resources. */
-void stmt__close(struct stmt *s);
+void stmt_close(struct stmt *s);
 
 /* No-op hash function (hashing is not supported for stmt). This is
  * required by the registry interface. */
-const char *stmt__hash(struct stmt *stmt);
+const char *stmtHash(struct stmt *stmt);
 
 /* TODO: change registry naming pattern */
-#define stmt_init stmt__init
-#define stmt_close stmt__close
-#define stmt_hash stmt__hash
+#define stmt_init stmt_init
+#define stmt_close stmt_close
+#define stmtHash stmtHash
 
-REGISTRY(stmt__registry, stmt);
+REGISTRY(stmtRegistry, stmt);
 
 #endif /* DQLITE_STMT_H */

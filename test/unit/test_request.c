@@ -16,7 +16,7 @@ struct fixture
 	void *buf;
 };
 
-static void *setup(const MunitParameter params[], void *user_data)
+static void *setup(const MunitParameter params[], void *userData)
 {
 	struct fixture *f;
 	f = munit_malloc(sizeof *f);
@@ -54,17 +54,17 @@ TEST_TEAR_DOWN(serialize, tear_down);
 TEST_CASE(serialize, leader, NULL)
 {
 	struct fixture *f = data;
-	struct request_leader request;
+	struct requestleader request;
 	void *cursor1;
 	struct cursor cursor2;
-	size_t n = request_leader__sizeof(&request);
+	size_t n = requestleaderSizeof(&request);
 	(void)params;
 	ALLOC_BUF(n);
 	cursor1 = f->buf;
-	request_leader__encode(&request, &cursor1);
+	requestleaderEncode(&request, &cursor1);
 	cursor2.p = f->buf;
 	cursor2.cap = n;
-	request_leader__decode(&cursor2, &request);
+	requestleaderDecode(&cursor2, &request);
 	return MUNIT_OK;
 }
 
@@ -93,9 +93,9 @@ TEST_CASE(decode, client, NULL)
 
 	(void)params;
 
-	test_message_send_client(123, &request->message);
+	testMessageSendClient(123, &request->message);
 
-	err = request_decode(request);
+	err = requestDecode(request);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(request->client.id, ==, 123);
@@ -110,9 +110,9 @@ TEST_CASE(decode, heartbeat, NULL)
 
 	(void)params;
 
-	test_message_send_heartbeat(666, &request->message);
+	testMessageSendHeartbeat(666, &request->message);
 
-	err = request_decode(request);
+	err = requestDecode(request);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_int(request->heartbeat.timestamp, ==, 666);
@@ -127,9 +127,9 @@ TEST_CASE(decode, open, NULL)
 
 	(void)params;
 
-	test_message_send_open("test.db", 123, "volatile", &request->message);
+	testMessageSendOpen("test.db", 123, "volatile", &request->message);
 
-	err = request_decode(request);
+	err = requestDecode(request);
 	munit_assert_int(err, ==, 0);
 
 	munit_assert_string_equal(request->open.name, "test.db");

@@ -36,7 +36,7 @@ TEST_MODULE(registry);
  *
  ******************************************************************************/
 
-struct db_fixture
+struct dbFixture
 {
 	FIXTURE;
 };
@@ -44,41 +44,41 @@ struct db_fixture
 TEST_SUITE(db);
 TEST_SETUP(db)
 {
-	struct db_fixture *f = munit_malloc(sizeof *f);
+	struct dbFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	return f;
 }
 TEST_TEAR_DOWN(db)
 {
-	struct db_fixture *f = data;
+	struct dbFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 /* Get a db that didn't exist before. */
-TEST_CASE(db, get_new, NULL)
+TEST_CASE(db, getNew, NULL)
 {
-	struct db_fixture *f = data;
+	struct dbFixture *f = data;
 	struct db *db;
 	(void)params;
 	int rc;
-	rc = registry__db_get(&f->registry, "test.db", &db);
+	rc = registryDbGet(&f->registry, "test.db", &db);
 	munit_assert_int(rc, ==, 0);
 	munit_assert_string_equal(db->filename, "test.db");
 	return MUNIT_OK;
 }
 
 /* Get a previously registered db. */
-TEST_CASE(db, get_existing, NULL)
+TEST_CASE(db, getExisting, NULL)
 {
-	struct db_fixture *f = data;
+	struct dbFixture *f = data;
 	struct db *db1;
 	struct db *db2;
 	(void)params;
 	int rc;
-	rc = registry__db_get(&f->registry, "test.db", &db1);
+	rc = registryDbGet(&f->registry, "test.db", &db1);
 	munit_assert_int(rc, ==, 0);
-	rc = registry__db_get(&f->registry, "test.db", &db2);
+	rc = registryDbGet(&f->registry, "test.db", &db2);
 	munit_assert_int(rc, ==, 0);
 	munit_assert_ptr_equal(db1, db2);
 	return MUNIT_OK;

@@ -14,32 +14,32 @@
  ******************************************************************************/
 
 #define N_SERVERS 3
-#define FIXTURE                                \
-	struct test_server servers[N_SERVERS]; \
+#define FIXTURE                               \
+	struct testServer servers[N_SERVERS]; \
 	struct client *client
 
-#define SETUP                                                 \
-	unsigned i_;                                          \
-	test_heap_setup(params, user_data);                   \
-	test_sqlite_setup(params);                            \
-	for (i_ = 0; i_ < N_SERVERS; i_++) {                  \
-		struct test_server *server = &f->servers[i_]; \
-		test_server_setup(server, i_ + 1, params);    \
-	}                                                     \
-	test_server_network(f->servers, N_SERVERS);           \
-	for (i_ = 0; i_ < N_SERVERS; i_++) {                  \
-		struct test_server *server = &f->servers[i_]; \
-		test_server_start(server);                    \
-	}                                                     \
+#define SETUP                                                \
+	unsigned i_;                                         \
+	testHeapSetup(params, userData);                     \
+	testSqliteSetup(params);                             \
+	for (i_ = 0; i_ < N_SERVERS; i_++) {                 \
+		struct testServer *server = &f->servers[i_]; \
+		testServerSetup(server, i_ + 1, params);     \
+	}                                                    \
+	testServerNetwork(f->servers, N_SERVERS);            \
+	for (i_ = 0; i_ < N_SERVERS; i_++) {                 \
+		struct testServer *server = &f->servers[i_]; \
+		testServerStart(server);                     \
+	}                                                    \
 	SELECT(1)
 
-#define TEAR_DOWN                                       \
-	unsigned i_;                                    \
-	for (i_ = 0; i_ < N_SERVERS; i_++) {            \
-		test_server_tear_down(&f->servers[i_]); \
-	}                                               \
-	test_sqlite_tear_down();                        \
-	test_heap_tear_down(data)
+#define TEAR_DOWN                                    \
+	unsigned i_;                                 \
+	for (i_ = 0; i_ < N_SERVERS; i_++) {         \
+		testServerTearDown(&f->servers[i_]); \
+	}                                            \
+	testSqliteTearDown();                        \
+	testHeapTearDown(data)
 
 /******************************************************************************
  *
@@ -48,7 +48,7 @@
  ******************************************************************************/
 
 /* Use the client connected to the server with the given ID. */
-#define SELECT(ID) f->client = test_server_client(&f->servers[ID - 1])
+#define SELECT(ID) f->client = testServerClient(&f->servers[ID - 1])
 
 /* Send the initial client handshake. */
 #define HANDSHAKE                                     \
@@ -132,7 +132,7 @@ struct fixture
 	FIXTURE;
 };
 
-static void *setUp(const MunitParameter params[], void *user_data)
+static void *setUp(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	SETUP;
@@ -151,24 +151,24 @@ TEST(membership, join, setUp, tearDown, 0, NULL)
 	struct fixture *f = data;
 	unsigned id = 2;
 	const char *address = "@2";
-	unsigned stmt_id;
-	unsigned last_insert_id;
-	unsigned rows_affected;
+	unsigned stmtId;
+	unsigned lastInsertId;
+	unsigned rowsAffected;
 
 	HANDSHAKE;
 	ADD(id, address);
 	ASSIGN(id, 1 /* voter */);
 	OPEN;
-	PREPARE("CREATE TABLE test (n INT)", &stmt_id);
-	EXEC(stmt_id, &last_insert_id, &rows_affected);
-	PREPARE("INSERT INTO test(n) VALUES(1)", &stmt_id);
-	EXEC(stmt_id, &last_insert_id, &rows_affected);
+	PREPARE("CREATE TABLE test (n INT)", &stmtId);
+	EXEC(stmtId, &lastInsertId, &rowsAffected);
+	PREPARE("INSERT INTO test(n) VALUES(1)", &stmtId);
+	EXEC(stmtId, &lastInsertId, &rowsAffected);
 
 	/* The table is visible from the new node */
 	SELECT(2);
 	HANDSHAKE;
 	OPEN;
-	PREPARE("SELECT * FROM test", &stmt_id);
+	PREPARE("SELECT * FROM test", &stmtId);
 
 	/* TODO: fix the standalone test for remove */
 	SELECT(1);

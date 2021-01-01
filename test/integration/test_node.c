@@ -17,14 +17,14 @@ struct fixture
 	dqlite_node *node; /* Node instance. */
 };
 
-static void *setUp(const MunitParameter params[], void *user_data)
+static void *setUp(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	int rv;
-	test_heap_setup(params, user_data);
-	test_sqlite_setup(params);
+	testHeapSetup(params, userData);
+	testSqliteSetup(params);
 
-	f->dir = test_dir_setup();
+	f->dir = testDirSetup();
 
 	rv = dqlite_node_create(1, "1", f->dir, &f->node);
 	munit_assert_int(rv, ==, 0);
@@ -41,9 +41,9 @@ static void tearDown(void *data)
 
 	dqlite_node_destroy(f->node);
 
-	test_dir_tear_down(f->dir);
-	test_sqlite_tear_down();
-	test_heap_tear_down(data);
+	testDirTearDown(f->dir);
+	testSqliteTearDown();
+	testHeapTearDown(data);
 	free(f);
 }
 

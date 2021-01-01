@@ -13,31 +13,31 @@
 #include "endpoint.h"
 #include "munit.h"
 
-struct test_server
+struct testServer
 {
 	unsigned id;                   /* Server ID. */
 	char address[8];               /* Server address. */
 	char *dir;                     /* Data directory. */
 	dqlite_node *dqlite;           /* Dqlite instance. */
 	struct client client;          /* Connected client. */
-	struct test_server *others[5]; /* Other servers, by ID-1. */
+	struct testServer *others[5];  /* Other servers, by ID-1. */
 };
 
 /* Initialize the test server. */
-void test_server_setup(struct test_server *s,
-		       unsigned id,
-		       const MunitParameter params[]);
+void testServerSetup(struct testServer *s,
+		     unsigned id,
+		     const MunitParameter params[]);
 
 /* Cleanup the test server. */
-void test_server_tear_down(struct test_server *s);
+void testServerTearDown(struct testServer *s);
 
 /* Start the test server. */
-void test_server_start(struct test_server *s);
+void testServerStart(struct testServer *s);
 
 /* Connect all the given the servers to each other. */
-void test_server_network(struct test_server *servers, unsigned n_servers);
+void testServerNetwork(struct testServer *servers, unsigned nServers);
 
 /* Return a client connected to the server. */
-struct client *test_server_client(struct test_server *s);
+struct client *testServerClient(struct testServer *s);
 
 #endif /* TEST_SERVER_H */

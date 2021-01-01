@@ -4,7 +4,7 @@
 #include "../../src/format.h"
 #include "../../src/leader.h"
 
-TEST_MODULE(replication_v1);
+TEST_MODULE(replicationV1);
 
 /******************************************************************************
  *
@@ -24,16 +24,16 @@ TEST_MODULE(replication_v1);
 		SETUP_LEADER(i);          \
 	}
 
-#define SETUP_LEADER(I)                                           \
-	do {                                                      \
-		struct leader *leader = &f->leaders[I];           \
-		struct registry *registry = CLUSTER_REGISTRY(I);  \
-		struct db *db;                                    \
-		int rc2;                                          \
-		rc2 = registry__db_get(registry, "test.db", &db); \
-		munit_assert_int(rc2, ==, 0);                     \
-		rc2 = leader__init(leader, db, CLUSTER_RAFT(I));  \
-		munit_assert_int(rc2, ==, 0);                     \
+#define SETUP_LEADER(I)                                          \
+	do {                                                     \
+		struct leader *leader = &f->leaders[I];          \
+		struct registry *registry = CLUSTER_REGISTRY(I); \
+		struct db *db;                                   \
+		int rc2;                                         \
+		rc2 = registryDbGet(registry, "test.db", &db);   \
+		munit_assert_int(rc2, ==, 0);                    \
+		rc2 = leaderInit(leader, db, CLUSTER_RAFT(I));   \
+		munit_assert_int(rc2, ==, 0);                    \
 	} while (0)
 
 #define TEAR_DOWN                         \
@@ -46,7 +46,7 @@ TEST_MODULE(replication_v1);
 #define TEAR_DOWN_LEADER(I)                             \
 	do {                                            \
 		struct leader *leader = &f->leaders[I]; \
-		leader__close(leader);                  \
+		leaderClose(leader);                    \
 	} while (0)
 
 /******************************************************************************
@@ -86,12 +86,11 @@ TEST_MODULE(replication_v1);
 	}
 
 /* Submit an exec request using the I'th leader. */
-#define EXEC(I)                                                 \
-	{                                                       \
-		int rc2;                                        \
-		rc2 = leader__exec(LEADER(I), &f->req, f->stmt, \
-				   fixture_exec_cb);            \
-		munit_assert_int(rc2, ==, 0);                   \
+#define EXEC(I)                                                               \
+	{                                                                     \
+		int rc2;                                                      \
+		rc2 = leaderExec(LEADER(I), &f->req, f->stmt, fixtureExecCb); \
+		munit_assert_int(rc2, ==, 0);                                 \
 	}
 
 /* Convenience to prepare, execute and finalize a statement. */
@@ -122,17 +121,17 @@ TEST_MODULE(replication_v1);
 		rv_ = file_->pMethods->xFileSize(file_, &size_);         \
 		munit_assert_int(rv_, ==, 0);                            \
 		pages_ = formatWalCalcFramesNumber(                      \
-		    leader_->db->config->page_size, size_);              \
+		    leader_->db->config->pageSize, size_);               \
 		munit_assert_int(pages_, ==, N);                         \
 	}
 
 /******************************************************************************
  *
- * leader__init
+ * leaderInit
  *
  ******************************************************************************/
 
-struct init_fixture
+struct initFixture
 {
 	FIXTURE;
 };
@@ -140,13 +139,13 @@ struct init_fixture
 TEST_SUITE(init);
 TEST_SETUP(init)
 {
-	struct init_fixture *f = munit_malloc(sizeof *f);
+	struct initFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	return f;
 }
 TEST_TEAR_DOWN(init)
 {
-	struct init_fixture *f = data;
+	struct initFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
@@ -154,7 +153,7 @@ TEST_TEAR_DOWN(init)
 /* The connection is open and can be used. */
 TEST_CASE(init, conn, NULL)
 {
-	struct init_fixture *f = data;
+	struct initFixture *f = data;
 	sqlite3_stmt *stmt;
 	int rc;
 	(void)params;
@@ -166,11 +165,11 @@ TEST_CASE(init, conn, NULL)
 
 /******************************************************************************
  *
- * leader__exec
+ * leaderExec
  *
  ******************************************************************************/
 
-struct exec_fixture
+struct execFixture
 {
 	FIXTURE;
 	struct exec req;
@@ -178,9 +177,9 @@ struct exec_fixture
 	int status;
 };
 
-static void fixture_exec_cb(struct exec *req, int status)
+static void fixtureExecCb(struct exec *req, int status)
 {
-	struct exec_fixture *f = req->data;
+	struct execFixture *f = req->data;
 	f->invoked = true;
 	f->status = status;
 }
@@ -188,21 +187,21 @@ static void fixture_exec_cb(struct exec *req, int status)
 TEST_SUITE(exec);
 TEST_SETUP(exec)
 {
-	struct exec_fixture *f = munit_malloc(sizeof *f);
+	struct execFixture *f = munit_malloc(sizeof *f);
 	SETUP;
 	f->req.data = f;
 	return f;
 }
 TEST_TEAR_DOWN(exec)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	TEAR_DOWN;
 	free(f);
 }
 
 TEST_CASE(exec, success, NULL)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	(void)params;
 	CLUSTER_ELECT(0);
 	PREPARE(0, "CREATE TABLE test (a  INT)");
@@ -217,7 +216,7 @@ TEST_CASE(exec, success, NULL)
 /* A snapshot is taken after applying an entry. */
 TEST_CASE(exec, snapshot, NULL)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	(void)params;
 	CLUSTER_SNAPSHOT_THRESHOLD(0, 4);
 	CLUSTER_ELECT(0);
@@ -235,9 +234,9 @@ TEST_CASE(exec, snapshot, NULL)
 }
 
 /* If a transaction is in progress, no snapshot is taken. */
-TEST_CASE(exec, snapshot_busy, NULL)
+TEST_CASE(exec, snapshotBusy, NULL)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	(void)params;
 	unsigned i;
 	CLUSTER_SNAPSHOT_THRESHOLD(0, 4);
@@ -255,10 +254,10 @@ TEST_CASE(exec, snapshot_busy, NULL)
 /* If the WAL size grows beyond the configured threshold, checkpoint it. */
 TEST_CASE(exec, checkpoint, NULL)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	struct config *config = CLUSTER_CONFIG(0);
 	(void)params;
-	config->checkpoint_threshold = 3;
+	config->checkpointThreshold = 3;
 	CLUSTER_ELECT(0);
 	EXEC_SQL(0, "CREATE TABLE test (n  INT)");
 	EXEC_SQL(0, "INSERT INTO test(n) VALUES(1)");
@@ -268,9 +267,9 @@ TEST_CASE(exec, checkpoint, NULL)
 }
 
 /* If a read transaction is in progress, no checkpoint is taken. */
-TEST_CASE(exec, checkpoint_read_lock, NULL)
+TEST_CASE(exec, checkpointReadLock, NULL)
 {
-	struct exec_fixture *f = data;
+	struct execFixture *f = data;
 	struct config *config = CLUSTER_CONFIG(0);
 	struct registry *registry = CLUSTER_REGISTRY(0);
 	struct db *db;
@@ -278,15 +277,15 @@ TEST_CASE(exec, checkpoint_read_lock, NULL)
 	char *errmsg;
 	int rv;
 	(void)params;
-	config->checkpoint_threshold = 3;
+	config->checkpointThreshold = 3;
 
 	CLUSTER_ELECT(0);
 	EXEC_SQL(0, "CREATE TABLE test (n  INT)");
 
 	/* Initialize another leader. */
-	rv = registry__db_get(registry, "test.db", &db);
+	rv = registryDbGet(registry, "test.db", &db);
 	munit_assert_int(rv, ==, 0);
-	leader__init(&leader2, db, CLUSTER_RAFT(0));
+	leaderInit(&leader2, db, CLUSTER_RAFT(0));
 
 	/* Start a read transaction in the other leader. */
 	rv = sqlite3_exec(leader2.conn, "BEGIN", NULL, NULL, &errmsg);
@@ -301,7 +300,7 @@ TEST_CASE(exec, checkpoint_read_lock, NULL)
 	/* The WAL was not truncated. */
 	ASSERT_WAL_PAGES(0, 3);
 
-	leader__close(&leader2);
+	leaderClose(&leader2);
 
 	return MUNIT_OK;
 }
@@ -322,7 +321,7 @@ struct fixture
 	int status;
 };
 
-static void *setUp(const MunitParameter params[], void *user_data)
+static void *setUp(const MunitParameter params[], void *userData)
 {
 	struct fixture *f = munit_malloc(sizeof *f);
 	SETUP_CLUSTER(V2);
@@ -356,7 +355,7 @@ TEST(replication, exec, setUp, tearDown, 0, NULL)
 	CLUSTER_ELECT(0);
 
 	PREPARE(0, "BEGIN");
-	rv = leader__exec(LEADER(0), &f->req, f->stmt, execCb);
+	rv = leaderExec(LEADER(0), &f->req, f->stmt, execCb);
 	munit_assert_int(rv, ==, 0);
 	munit_assert_true(f->invoked);
 	munit_assert_int(f->status, ==, SQLITE_DONE);
@@ -364,7 +363,7 @@ TEST(replication, exec, setUp, tearDown, 0, NULL)
 	FINALIZE;
 
 	PREPARE(0, "CREATE TABLE test (a  INT)");
-	rv = leader__exec(LEADER(0), &f->req, f->stmt, execCb);
+	rv = leaderExec(LEADER(0), &f->req, f->stmt, execCb);
 	munit_assert_int(rv, ==, 0);
 	munit_assert_true(f->invoked);
 	munit_assert_int(f->status, ==, SQLITE_DONE);
@@ -372,7 +371,7 @@ TEST(replication, exec, setUp, tearDown, 0, NULL)
 	FINALIZE;
 
 	PREPARE(0, "COMMIT");
-	rv = leader__exec(LEADER(0), &f->req, f->stmt, execCb);
+	rv = leaderExec(LEADER(0), &f->req, f->stmt, execCb);
 	munit_assert_int(rv, ==, 0);
 	munit_assert_false(f->invoked);
 	FINALIZE;
@@ -400,19 +399,19 @@ TEST(replication, checkpoint, setUp, tearDown, 0, NULL)
 	struct config *config = CLUSTER_CONFIG(0);
 	int rv;
 
-	config->checkpoint_threshold = 3;
+	config->checkpointThreshold = 3;
 
 	CLUSTER_ELECT(0);
 
 	PREPARE(0, "CREATE TABLE test (n  INT)");
-	rv = leader__exec(LEADER(0), &f->req, f->stmt, execCb);
+	rv = leaderExec(LEADER(0), &f->req, f->stmt, execCb);
 	munit_assert_int(rv, ==, 0);
 	FINALIZE;
 
 	CLUSTER_APPLIED(2);
 
 	PREPARE(0, "INSERT INTO test(n) VALUES(1)");
-	rv = leader__exec(LEADER(0), &f->req, f->stmt, execCb);
+	rv = leaderExec(LEADER(0), &f->req, f->stmt, execCb);
 	munit_assert_int(rv, ==, 0);
 	FINALIZE;
 

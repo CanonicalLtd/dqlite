@@ -9,30 +9,30 @@
 #include <stdint.h>
 
 /* Minumum and maximum page size. */
-#define FORMAT__PAGE_SIZE_MIN 512
-#define FORMAT__PAGE_SIZE_MAX 65536
+#define FORMAT_PAGE_SIZE_MIN 512
+#define FORMAT_PAGE_SIZE_MAX 65536
 
 /* Database header size. */
-#define FORMAT__DB_HDR_SIZE 100
+#define FORMAT_DB_HDR_SIZE 100
 
 /* Write ahead log header size. */
-#define FORMAT__WAL_HDR_SIZE 32
+#define FORMAT_WAL_HDR_SIZE 32
 
 /* Write ahead log frame header size. */
-#define FORMAT__WAL_FRAME_HDR_SIZE 24
+#define FORMAT_WAL_FRAME_HDR_SIZE 24
 
 /* Number of reader marks in the wal index header. */
-#define FORMAT__WAL_NREADER 5
+#define FORMAT_WAL_NREADER 5
 
 /* Given the page size, calculate the size of a full WAL frame (frame header
  * plus page data). */
 #define formatWalCalcFrameSize(PAGE_SIZE) \
-	(FORMAT__WAL_FRAME_HDR_SIZE + PAGE_SIZE)
+	(FORMAT_WAL_FRAME_HDR_SIZE + PAGE_SIZE)
 
 /* Given the page size and the WAL file size, calculate the number of frames it
  * has. */
 #define formatWalCalcFramesNumber(PAGE_SIZE, SIZE) \
-	((SIZE - FORMAT__WAL_HDR_SIZE) / formatWalCalcFrameSize(PAGE_SIZE))
+	((SIZE - FORMAT_WAL_HDR_SIZE) / formatWalCalcFrameSize(PAGE_SIZE))
 
 /* Given the page size, calculate the WAL page number of the frame starting at
  * the given offset. */

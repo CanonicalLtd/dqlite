@@ -2,7 +2,7 @@
 #include "tuple.h"
 
 /* Bind a single parameter. */
-static int bind_one(sqlite3_stmt *stmt, int n, struct value *value)
+static int bindOne(sqlite3_stmt *stmt, int n, struct value *value)
 {
 	int rc;
 
@@ -48,9 +48,9 @@ static int bind_one(sqlite3_stmt *stmt, int n, struct value *value)
 	return rc;
 }
 
-int bind__params(sqlite3_stmt *stmt, struct cursor *cursor)
+int bindParams(sqlite3_stmt *stmt, struct cursor *cursor)
 {
-	struct tuple_decoder decoder;
+	struct tupleDecoder decoder;
 	unsigned i;
 	int rc;
 
@@ -62,17 +62,17 @@ int bind__params(sqlite3_stmt *stmt, struct cursor *cursor)
 		return 0;
 	}
 
-	rc = tuple_decoder__init(&decoder, 0, cursor);
+	rc = tupleDecoderInit(&decoder, 0, cursor);
 	if (rc != 0) {
 		return rc;
 	}
-	for (i = 0; i < tuple_decoder__n(&decoder); i++) {
+	for (i = 0; i < tupleDecoderN(&decoder); i++) {
 		struct value value;
-		rc = tuple_decoder__next(&decoder, &value);
+		rc = tupleDecoderNext(&decoder, &value);
 		if (rc != 0) {
 			return rc;
 		}
-		rc = bind_one(stmt, (int)(i + 1), &value);
+		rc = bindOne(stmt, (int)(i + 1), &value);
 		if (rc != 0) {
 			return rc;
 		}

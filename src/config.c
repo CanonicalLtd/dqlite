@@ -28,7 +28,7 @@
  * TODO: make this thread safe. */
 static unsigned serial = 1;
 
-int config__init(struct config *c, dqlite_node_id id, const char *address)
+int configInit(struct config *c, dqlite_node_id id, const char *address)
 {
 	int rv;
 	c->id = id;
@@ -37,20 +37,20 @@ int config__init(struct config *c, dqlite_node_id id, const char *address)
 		return DQLITE_NOMEM;
 	}
 	strcpy(c->address, address);
-	c->heartbeat_timeout = DEFAULT_HEARTBEAT_TIMEOUT;
-	c->page_size = DEFAULT_PAGE_SIZE;
-	c->checkpoint_threshold = DEFAULT_CHECKPOINT_THRESHOLD;
+	c->heartbeatTimeout = DEFAULT_HEARTBEAT_TIMEOUT;
+	c->pageSize = DEFAULT_PAGE_SIZE;
+	c->checkpointThreshold = DEFAULT_CHECKPOINT_THRESHOLD;
 	rv = snprintf(c->name, sizeof c->name, "dqlite-%u", serial);
 	assert(rv < (int)(sizeof c->name));
 	c->logger.data = NULL;
 	c->logger.emit = loggerDefaultEmit;
-	c->failure_domain = 0;
+	c->failureDomain = 0;
 	c->weight = 0;
 	serial++;
 	return 0;
 }
 
-void config__close(struct config *c)
+void configClose(struct config *c)
 {
 	sqlite3_free(c->address);
 }

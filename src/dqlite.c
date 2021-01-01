@@ -23,10 +23,10 @@ int dqlite_vfs_poll(sqlite3_vfs *vfs,
 int dqlite_vfs_apply(sqlite3_vfs *vfs,
 		     const char *filename,
 		     unsigned n,
-		     unsigned long *page_numbers,
+		     unsigned long *pageNumbers,
 		     void *frames)
 {
-	return VfsApply(vfs, filename, n, page_numbers, frames);
+	return VfsApply(vfs, filename, n, pageNumbers, frames);
 }
 
 int dqlite_vfs_abort(sqlite3_vfs *vfs, const char *filename)

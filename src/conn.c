@@ -5,10 +5,10 @@
 #include "protocol.h"
 
 /* Initialize the given buffer for reading, ensure it has the given size. */
-static int init_read(struct conn *c, uv_buf_t *buf, size_t size)
+static int initRead(struct conn *c, uv_buf_t *buf, size_t size)
 {
-	buffer__reset(&c->read);
-	buf->base = buffer__advance(&c->read, size);
+	bufferReset(&c->read);
+	buf->base = bufferAdvance(&c->read, size);
 	if (buf->base == NULL) {
 		return DQLITE_NOMEM;
 	}
@@ -16,8 +16,8 @@ static int init_read(struct conn *c, uv_buf_t *buf, size_t size)
 	return 0;
 }
 
-static int read_message(struct conn *c);
-static void write_cb(struct transport *transport, int status)
+static int readMessage(struct conn *c);
+static void writeCb(struct transport *transport, int status)
 {
 	struct conn *c = transport->data;
 	bool finished;
@@ -26,10 +26,10 @@ static void write_cb(struct transport *transport, int status)
 		goto abort;
 	}
 
-	buffer__reset(&c->write);
-	buffer__advance(&c->write, message__sizeof(&c->response)); /* Header */
+	bufferReset(&c->write);
+	bufferAdvance(&c->write, messageSizeof(&c->response)); /* Header */
 
-	rv = gateway__resume(&c->gateway, &finished);
+	rv = gatewayResume(&c->gateway, &finished);
 	if (rv != 0) {
 		goto abort;
 	}
@@ -38,16 +38,16 @@ static void write_cb(struct transport *transport, int status)
 	}
 
 	/* Start reading the next request */
-	rv = read_message(c);
+	rv = readMessage(c);
 	if (rv != 0) {
 		goto abort;
 	}
 	return;
 abort:
-	conn__stop(c);
+	connStop(c);
 }
 
-static void gateway_handle_cb(struct handle *req, int status, int type)
+static void gatewayHandleCb(struct handle *req, int status, int type)
 {
 	struct conn *c = req->data;
 	size_t n;
@@ -56,7 +56,7 @@ static void gateway_handle_cb(struct handle *req, int status, int type)
 	int rv;
 
 	/* Ignore results firing after we started closing. TODO: instead, we
-	 * should make gateway__close() asynchronous. */
+	 * should make gatewayClose() asynchronous. */
 	if (c->closed) {
 		return;
 	}
@@ -65,7 +65,7 @@ static void gateway_handle_cb(struct handle *req, int status, int type)
 		goto abort;
 	}
 
-	n = buffer__offset(&c->write) - message__sizeof(&c->response);
+	n = bufferOffset(&c->write) - messageSizeof(&c->response);
 	assert(n % 8 == 0);
 
 	c->response.type = (uint8_t)type;
@@ -73,49 +73,49 @@ static void gateway_handle_cb(struct handle *req, int status, int type)
 	c->response.flags = 0;
 	c->response.extra = 0;
 
-	cursor = buffer__cursor(&c->write, 0);
-	message__encode(&c->response, &cursor);
+	cursor = bufferCursor(&c->write, 0);
+	messageEncode(&c->response, &cursor);
 
-	buf.base = buffer__cursor(&c->write, 0);
-	buf.len = buffer__offset(&c->write);
+	buf.base = bufferCursor(&c->write, 0);
+	buf.len = bufferOffset(&c->write);
 
-	rv = transport__write(&c->transport, &buf, write_cb);
+	rv = transportWrite(&c->transport, &buf, writeCb);
 	if (rv != 0) {
 		goto abort;
 	}
 	return;
 abort:
-	conn__stop(c);
+	connStop(c);
 }
 
 static void closeCb(struct transport *transport)
 {
 	struct conn *c = transport->data;
-	buffer__close(&c->write);
-	buffer__close(&c->read);
-	if (c->close_cb != NULL) {
-		c->close_cb(c);
+	bufferClose(&c->write);
+	bufferClose(&c->read);
+	if (c->closeCb != NULL) {
+		c->closeCb(c);
 	}
 }
 
-static void raft_connect(struct conn *c, struct cursor *cursor)
+static void raftConnect(struct conn *c, struct cursor *cursor)
 {
-	struct request_connect request;
+	struct requestConnect request;
 	int rv;
-	rv = request_connect__decode(cursor, &request);
+	rv = requestConnectDecode(cursor, &request);
 	if (rv != 0) {
-		conn__stop(c);
+		connStop(c);
 		return;
 	}
-	raftProxyAccept(c->uv_transport, request.id, request.address,
-			      c->transport.stream);
+	raftProxyAccept(c->uvTransport, request.id, request.address,
+			c->transport.stream);
 	/* Close the connection without actually closing the transport, since
 	 * the stream will be used by raft */
 	c->closed = true;
 	closeCb(&c->transport);
 }
 
-static void read_request_cb(struct transport *transport, int status)
+static void readRequestCb(struct transport *transport, int status)
 {
 	struct conn *c = transport->data;
 	struct cursor cursor;
@@ -123,46 +123,46 @@ static void read_request_cb(struct transport *transport, int status)
 
 	if (status != 0) {
 		// errorf(c->logger, "read error");
-		conn__stop(c);
+		connStop(c);
 		return;
 	}
 
-	cursor.p = buffer__cursor(&c->read, 0);
-	cursor.cap = buffer__offset(&c->read);
+	cursor.p = bufferCursor(&c->read, 0);
+	cursor.cap = bufferOffset(&c->read);
 
-	buffer__reset(&c->write);
-	buffer__advance(&c->write, message__sizeof(&c->response)); /* Header */
+	bufferReset(&c->write);
+	bufferAdvance(&c->write, messageSizeof(&c->response)); /* Header */
 
 	switch (c->request.type) {
 		case DQLITE_REQUEST_CONNECT:
-			raft_connect(c, &cursor);
+			raftConnect(c, &cursor);
 			return;
 	}
 
-	rv = gateway__handle(&c->gateway, &c->handle, c->request.type, &cursor,
-			     &c->write, gateway_handle_cb);
+	rv = gatewayHandle(&c->gateway, &c->handle, c->request.type, &cursor,
+			   &c->write, gatewayHandleCb);
 	if (rv != 0) {
-		conn__stop(c);
+		connStop(c);
 	}
 }
 
 /* Start reading the body of the next request */
-static int read_request(struct conn *c)
+static int readRequest(struct conn *c)
 {
 	uv_buf_t buf;
 	int rv;
-	rv = init_read(c, &buf, c->request.words * 8);
+	rv = initRead(c, &buf, c->request.words * 8);
 	if (rv != 0) {
 		return rv;
 	}
-	rv = transport__read(&c->transport, &buf, read_request_cb);
+	rv = transportRead(&c->transport, &buf, readRequestCb);
 	if (rv != 0) {
 		return rv;
 	}
 	return 0;
 }
 
-static void read_message_cb(struct transport *transport, int status)
+static void readMessageCb(struct transport *transport, int status)
 {
 	struct conn *c = transport->data;
 	struct cursor cursor;
@@ -170,40 +170,40 @@ static void read_message_cb(struct transport *transport, int status)
 
 	if (status != 0) {
 		// errorf(c->logger, "read error");
-		conn__stop(c);
+		connStop(c);
 		return;
 	}
 
-	cursor.p = buffer__cursor(&c->read, 0);
-	cursor.cap = buffer__offset(&c->read);
+	cursor.p = bufferCursor(&c->read, 0);
+	cursor.cap = bufferOffset(&c->read);
 
-	rv = message__decode(&cursor, &c->request);
+	rv = messageDecode(&cursor, &c->request);
 	assert(rv == 0); /* Can't fail, we know we have enough bytes */
 
-	rv = read_request(c);
+	rv = readRequest(c);
 	if (rv != 0) {
-		conn__stop(c);
+		connStop(c);
 		return;
 	}
 }
 
 /* Start reading metadata about the next message */
-static int read_message(struct conn *c)
+static int readMessage(struct conn *c)
 {
 	uv_buf_t buf;
 	int rv;
-	rv = init_read(c, &buf, message__sizeof(&c->request));
+	rv = initRead(c, &buf, messageSizeof(&c->request));
 	if (rv != 0) {
 		return rv;
 	}
-	rv = transport__read(&c->transport, &buf, read_message_cb);
+	rv = transportRead(&c->transport, &buf, readMessageCb);
 	if (rv != 0) {
 		return rv;
 	}
 	return 0;
 }
 
-static void read_protocol_cb(struct transport *transport, int status)
+static void readProtocolCb(struct transport *transport, int status)
 {
 	struct conn *c = transport->data;
 	struct cursor cursor;
@@ -214,10 +214,10 @@ static void read_protocol_cb(struct transport *transport, int status)
 		goto abort;
 	}
 
-	cursor.p = buffer__cursor(&c->read, 0);
-	cursor.cap = buffer__offset(&c->read);
+	cursor.p = bufferCursor(&c->read, 0);
+	cursor.cap = bufferOffset(&c->read);
 
-	rv = uint64__decode(&cursor, &c->protocol);
+	rv = uint64Decode(&cursor, &c->protocol);
 	assert(rv == 0); /* Can't fail, we know we have enough bytes */
 
 	if (c->protocol != DQLITE_PROTOCOL_VERSION && c->protocol != DQLITE_PROTOCOL_VERSION_LEGACY) {
@@ -229,85 +229,85 @@ static void read_protocol_cb(struct transport *transport, int status)
 	}
 	c->gateway.protocol = c->protocol;
 
-	rv = read_message(c);
+	rv = readMessage(c);
 	if (rv != 0) {
 		goto abort;
 	}
 
 	return;
 abort:
-	conn__stop(c);
+	connStop(c);
 }
 
 /* Start reading the protocol format version */
-static int read_protocol(struct conn *c)
+static int readProtocol(struct conn *c)
 {
 	uv_buf_t buf;
 	int rv;
-	rv = init_read(c, &buf, sizeof c->protocol);
+	rv = initRead(c, &buf, sizeof c->protocol);
 	if (rv != 0) {
 		return rv;
 	}
-	rv = transport__read(&c->transport, &buf, read_protocol_cb);
+	rv = transportRead(&c->transport, &buf, readProtocolCb);
 	if (rv != 0) {
 		return rv;
 	}
 	return 0;
 }
 
-int conn__start(struct conn *c,
-		struct config *config,
-		struct uv_loop_s *loop,
-		struct registry *registry,
-		struct raft *raft,
-		struct uv_stream_s *stream,
-		struct raft_uv_transport *uv_transport,
-		conn_close_cb close_cb)
+int connStart(struct conn *c,
+	      struct config *config,
+	      struct uv_loop_s *loop,
+	      struct registry *registry,
+	      struct raft *raft,
+	      struct uv_stream_s *stream,
+	      struct raft_uv_transport *uvTransport,
+	      conn_closeCb close_cb)
 {
 	int rv;
 	(void)loop;
-	rv = transport__init(&c->transport, stream);
+	rv = transportInit(&c->transport, stream);
 	if (rv != 0) {
 		goto err;
 	}
 	c->config = config;
 	c->transport.data = c;
-	c->uv_transport = uv_transport;
-	c->close_cb = close_cb;
-	gateway__init(&c->gateway, config, registry, raft);
-	rv = buffer__init(&c->read);
+	c->uvTransport = uvTransport;
+	c->closeCb = close_cb;
+	gatewayInit(&c->gateway, config, registry, raft);
+	rv = bufferInit(&c->read);
 	if (rv != 0) {
-		goto err_after_transport_init;
+		goto errAfterTransportInit;
 	}
-	rv = buffer__init(&c->write);
+	rv = bufferInit(&c->write);
 	if (rv != 0) {
-		goto err_after_read_buffer_init;
+		goto errAfterReadBufferInit;
 	}
 	c->handle.data = c;
 	c->closed = false;
 	/* First, we expect the client to send us the protocol version. */
-	rv = read_protocol(c);
+	rv = readProtocol(c);
 	if (rv != 0) {
-		goto err_after_write_buffer_init;
+		goto errAfterWriteBufferInit;
 	}
 	return 0;
 
-err_after_write_buffer_init:
-	buffer__close(&c->write);
-err_after_read_buffer_init:
-	buffer__close(&c->read);
-err_after_transport_init:
-	transport__close(&c->transport, NULL);
+errAfterWriteBufferInit:
+	bufferClose(&c->write);
+errAfterReadBufferInit:
+	bufferClose(&c->read);
+errAfterTransportInit:
+	transportClose(&c->transport, NULL);
 err:
 	return rv;
 }
 
-void conn__stop(struct conn *c)
+void connStop(struct conn *c)
 {
 	if (c->closed) {
 		return;
 	}
 	c->closed = true;
-	gateway__close(&c->gateway);
-	transport__close(&c->transport, closeCb);
+	gatewayClose(&c->gateway);
+	transportClose(&c->transport, closeCb);
 }
